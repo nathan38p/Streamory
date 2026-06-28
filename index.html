@@ -17,7 +17,7 @@
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <h1>Streamory</h1>
+          <h1 id="siteTitle">Streamory</h1>
         </div>
         <button class="icon-button" id="settingsButton" type="button" aria-label="Réglages" hidden>⚙</button>
       </header>
@@ -61,7 +61,7 @@
             </label>
             <label>
               Date de naissance
-              <input id="birthDateInput" type="date" required>
+              <input id="birthDateInput" type="text" inputmode="numeric" autocomplete="bday" maxlength="10" placeholder="JJ/MM/AAAA" required>
             </label>
             <label>
               Pays
@@ -142,8 +142,8 @@
       </article>
     </template>
 
-    <script src="config.js?v=16"></script>
+    <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=16"></script>
+    <script src="app.js"></script>
   </body>
 </html>

@@ -34,6 +34,7 @@ const state = {
 };
 
 const els = {
+  siteTitle: document.querySelector("#siteTitle"),
   authPanel: document.querySelector("#authPanel"),
   appControls: document.querySelector("#appControls"),
   libraryPanel: document.querySelector("#libraryPanel"),
@@ -103,6 +104,8 @@ function bindEvents() {
   els.clearResultsButton.addEventListener("click", clearResults);
   els.settingsLogoutButton.addEventListener("click", logout);
   els.settingsButton.addEventListener("click", () => els.settingsDialog.showModal());
+  els.birthDateInput.addEventListener("input", formatBirthDateInput);
+  els.birthDateInput.addEventListener("keydown", handleBirthDateSlash);
 
   document.querySelectorAll("[data-type]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -193,6 +196,48 @@ function setAuthMode(mode) {
   els.signupMessage.textContent = "";
 }
 
+function resetAuthForms() {
+  els.loginForm.reset();
+  els.signupForm.reset();
+  els.countryInput.value = "FR";
+  setAuthMode("login");
+}
+
+function formatBirthDateInput() {
+  const digits = els.birthDateInput.value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 2) {
+    els.birthDateInput.value = digits.length === 2 ? `${digits}/` : digits;
+    return;
+  }
+
+  if (digits.length <= 4) {
+    els.birthDateInput.value = digits.length === 4
+      ? `${digits.slice(0, 2)}/${digits.slice(2, 4)}/`
+      : `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return;
+  }
+
+  els.birthDateInput.value = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function handleBirthDateSlash(event) {
+  if (event.key !== "/") return;
+
+  event.preventDefault();
+  const parts = els.birthDateInput.value.split("/");
+  const digits = parts.map((part) => part.replace(/\D/g, ""));
+
+  if (parts.length === 1 && digits[0].length === 1) {
+    els.birthDateInput.value = `0${digits[0]}/`;
+    return;
+  }
+
+  if (parts.length === 2 && digits[1].length === 1) {
+    els.birthDateInput.value = `${digits[0].padStart(2, "0")}/0${digits[1]}/`;
+  }
+}
+
 function populateCountries() {
   const countryNames = Intl.DisplayNames
     ? new Intl.DisplayNames(["fr"], { type: "region" })
@@ -255,7 +300,12 @@ async function handleSignup(event) {
     return;
   }
 
-  setAuthLoading("signup", true, "Création du compte...");
+  const birthDate = getBirthDateValue();
+  if (!birthDate) {
+    els.signupMessage.textContent = "Entre une date de naissance valide.";
+    return;
+  }
+
   try {
     const { data, error } = await state.client.auth.signUp({
       email: els.signupEmailInput.value.trim(),
@@ -264,7 +314,7 @@ async function handleSignup(event) {
         emailRedirectTo: getAuthRedirectUrl(),
         data: {
           username: els.usernameInput.value.trim(),
-          birth_date: els.birthDateInput.value,
+          birth_date: birthDate,
           country: els.countryInput.value,
           country_label: els.countryInput.selectedOptions[0]?.textContent || ""
         }
@@ -282,6 +332,20 @@ async function handleSignup(event) {
   } finally {
     setAuthLoading("signup", false);
   }
+}
+
+function getBirthDateValue() {
+  const [day = "", month = "", year = ""] = els.birthDateInput.value.split("/");
+
+  if (day.length !== 2 || month.length !== 2 || year.length !== 4) return "";
+
+  const isoDate = `${year}-${month}-${day}`;
+  const date = new Date(`${isoDate}T00:00:00`);
+  const isValid = date.getFullYear() === Number(year)
+    && date.getMonth() + 1 === Number(month)
+    && date.getDate() === Number(day);
+
+  return isValid ? isoDate : "";
 }
 
 function getAuthRedirectUrl() {
@@ -308,6 +372,7 @@ async function logout() {
   if (!state.client) return;
   await state.client.auth.signOut();
   state.library = [];
+  resetAuthForms();
   renderLibrary();
   els.settingsDialog.close();
 }
@@ -510,7 +575,22 @@ function escapeHtml(value) {
 }
 
 function registerServiceWorker() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  if (!("serviceWorker" in navigator)) return;
+
+  if (isLocalDevHost()) {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => registrations.forEach((registration) => registration.unregister()))
+      .catch(() => {});
+    return;
   }
+
+  navigator.serviceWorker.register("service-worker.js").catch(() => {});
+}
+
+function isLocalDevHost() {
+  return [
+    "localhost",
+    "127.0.0.1",
+    "172.20.10.14"
+  ].includes(window.location.hostname);
 }
