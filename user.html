@@ -16,6 +16,10 @@
       <div>
         <h1 id="siteTitle" style="cursor:pointer;" onclick="window.location.href='app.html'">Streamory</h1>
       </div>
+      <div class="header-actions" id="ownProfileActions" hidden>
+        <button class="icon-button notification-button" id="notificationsButton" type="button" aria-label="Notifications" hidden>🔔<span id="notificationsBadge" class="notification-badge" hidden>0</span></button>
+        <button class="icon-button" id="ownProfileButton" type="button" aria-label="Mon profil" style="width:44px;height:44px;border-radius:12px;background:#1a1d22;display:flex;align-items:center;justify-content:center;">👤</button>
+      </div>
       <button class="icon-button" id="backButton" type="button" aria-label="Retour" onclick="history.back()">×</button>
     </header>
 
@@ -31,15 +35,56 @@
               </div>
             </div>
           </div>
-          <span class="friend-count-button" id="publicFriendCount">0 ami</span>
+          <button class="friend-count-button" id="publicFriendCount" type="button" disabled>0 ami</button>
         </div>
         <div class="profile-actions">
-          <button class="primary-button" id="addFriendButton" type="button" hidden>Ajouter en ami</button>
           <p class="message" id="publicProfileMessage"></p>
         </div>
       </section>
     </main>
   </div>
+
+  <dialog class="settings-dialog" id="notificationsDialog">
+    <form method="dialog" class="settings-content">
+      <div class="section-title">
+        <h2>Notifications</h2>
+        <button class="icon-button" value="close" aria-label="Fermer">×</button>
+      </div>
+      <div class="social-list" id="notificationsList"></div>
+    </form>
+  </dialog>
+
+  <dialog class="settings-dialog" id="friendsDialog">
+    <form method="dialog" class="settings-content">
+      <div class="section-title">
+        <h2>Amis</h2>
+        <button class="icon-button" value="close" aria-label="Fermer">×</button>
+      </div>
+      <div class="friend-add-box">
+        <label>Ajouter un ami
+          <div class="search-row">
+            <input id="friendSearchInput" type="search" placeholder="Display name">
+            <button class="primary-button" id="friendSearchButton" type="button">Chercher</button>
+          </div>
+        </label>
+        <p class="message" id="friendSearchMessage"></p>
+        <div class="social-list" id="friendSearchResults"></div>
+      </div>
+      <div class="social-list" id="friendsList"></div>
+    </form>
+  </dialog>
+
+  <dialog class="settings-dialog" id="removeFriendDialog">
+    <form method="dialog" class="settings-content">
+      <div class="section-title">
+        <h2>Supprimer l'ami</h2>
+        <button class="icon-button" value="close" aria-label="Fermer">×</button>
+      </div>
+      <p class="hint" id="removeFriendMessage">Retirer cet utilisateur de tes amis ?</p>
+      <button class="primary-button danger-button" id="confirmRemoveFriendButton" type="button">Confirmer</button>
+      <button class="secondary-button" value="close" type="submit">Annuler</button>
+    </form>
+  </dialog>
 
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

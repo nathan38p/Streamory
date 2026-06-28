@@ -42,6 +42,50 @@ create policy "Users can delete their Streamory items"
   on public.user_items for delete
   using (auth.uid() = user_id);
 
+create table if not exists public.user_episode_watches (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  series_tvdb_id text not null,
+  series_title text not null,
+  episode_tvdb_id text not null,
+  season_number integer not null,
+  episode_number integer not null,
+  episode_name text,
+  watched_at timestamptz,
+  watched_count integer not null default 1,
+  rewatch_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, series_tvdb_id, episode_tvdb_id)
+);
+
+alter table public.user_episode_watches enable row level security;
+
+drop policy if exists "Users can read their Streamory episode watches" on public.user_episode_watches;
+
+create policy "Users can read their Streamory episode watches"
+  on public.user_episode_watches for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can create their Streamory episode watches" on public.user_episode_watches;
+
+create policy "Users can create their Streamory episode watches"
+  on public.user_episode_watches for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their Streamory episode watches" on public.user_episode_watches;
+
+create policy "Users can update their Streamory episode watches"
+  on public.user_episode_watches for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their Streamory episode watches" on public.user_episode_watches;
+
+create policy "Users can delete their Streamory episode watches"
+  on public.user_episode_watches for delete
+  using (auth.uid() = user_id);
+
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   username text not null,
@@ -382,4 +426,18 @@ as $$
   where id = request_id
     and addressee_id = auth.uid()
     and status = 'pending';
+$$;
+
+create or replace function public.remove_streamory_friend(target_user_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.friend_requests
+  where status = 'accepted'
+    and (
+      (requester_id = auth.uid() and addressee_id = target_user_id)
+      or (addressee_id = auth.uid() and requester_id = target_user_id)
+    );
 $$;

@@ -5,6 +5,244 @@ const STATUSES = {
   watching: "En cours",
   watched: "Vu"
 };
+const COUNTRY_LANGUAGE_CODES = {
+  AD: "cat",
+  AE: "ara",
+  AF: "fas",
+  AG: "eng",
+  AI: "eng",
+  AL: "sqi",
+  AM: "hye",
+  AO: "por",
+  AR: "spa",
+  AS: "eng",
+  AT: "deu",
+  AU: "eng",
+  AW: "nld",
+  AX: "swe",
+  AZ: "aze",
+  BA: "bos",
+  BB: "eng",
+  BD: "ben",
+  BE: "nld",
+  BF: "fra",
+  BG: "bul",
+  BH: "ara",
+  BI: "fra",
+  BJ: "fra",
+  BL: "fra",
+  BM: "eng",
+  BN: "msa",
+  BO: "spa",
+  BQ: "nld",
+  BR: "por",
+  BS: "eng",
+  BT: "dzo",
+  BW: "eng",
+  BY: "bel",
+  BZ: "eng",
+  CA: "eng",
+  CD: "fra",
+  CF: "fra",
+  CG: "fra",
+  CH: "deu",
+  CI: "fra",
+  CK: "eng",
+  CL: "spa",
+  CM: "fra",
+  CN: "zho",
+  CO: "spa",
+  CR: "spa",
+  CU: "spa",
+  CV: "por",
+  CW: "nld",
+  CY: "ell",
+  CZ: "ces",
+  DE: "deu",
+  DJ: "fra",
+  DK: "dan",
+  DM: "eng",
+  DO: "spa",
+  DZ: "ara",
+  EC: "spa",
+  EE: "est",
+  EG: "ara",
+  ER: "ara",
+  ES: "spa",
+  ET: "amh",
+  FI: "fin",
+  FJ: "eng",
+  FK: "eng",
+  FM: "eng",
+  FO: "fao",
+  FR: "fra",
+  GA: "fra",
+  GB: "eng",
+  GD: "eng",
+  GE: "kat",
+  GF: "fra",
+  GG: "eng",
+  GH: "eng",
+  GI: "eng",
+  GL: "kal",
+  GM: "eng",
+  GN: "fra",
+  GP: "fra",
+  GQ: "spa",
+  GR: "ell",
+  GT: "spa",
+  GU: "eng",
+  GW: "por",
+  GY: "eng",
+  HK: "zho",
+  HN: "spa",
+  HR: "hrv",
+  HT: "fra",
+  HU: "hun",
+  ID: "ind",
+  IE: "eng",
+  IL: "heb",
+  IM: "eng",
+  IN: "hin",
+  IQ: "ara",
+  IR: "fas",
+  IS: "isl",
+  IT: "ita",
+  JE: "eng",
+  JM: "eng",
+  JO: "ara",
+  JP: "jpn",
+  KE: "eng",
+  KG: "kir",
+  KH: "khm",
+  KI: "eng",
+  KM: "ara",
+  KN: "eng",
+  KP: "kor",
+  KR: "kor",
+  KW: "ara",
+  KY: "eng",
+  KZ: "kaz",
+  LA: "lao",
+  LB: "ara",
+  LC: "eng",
+  LI: "deu",
+  LK: "sin",
+  LR: "eng",
+  LS: "eng",
+  LT: "lit",
+  LU: "fra",
+  LV: "lav",
+  LY: "ara",
+  MA: "ara",
+  MC: "fra",
+  MD: "ron",
+  ME: "srp",
+  MF: "fra",
+  MG: "fra",
+  MH: "eng",
+  MK: "mkd",
+  ML: "fra",
+  MM: "mya",
+  MN: "mon",
+  MO: "zho",
+  MP: "eng",
+  MQ: "fra",
+  MR: "ara",
+  MS: "eng",
+  MT: "mlt",
+  MU: "eng",
+  MV: "div",
+  MW: "eng",
+  MX: "spa",
+  MY: "msa",
+  MZ: "por",
+  NA: "eng",
+  NC: "fra",
+  NE: "fra",
+  NG: "eng",
+  NI: "spa",
+  NL: "nld",
+  NO: "nor",
+  NP: "nep",
+  NR: "eng",
+  NU: "eng",
+  NZ: "eng",
+  OM: "ara",
+  PA: "spa",
+  PE: "spa",
+  PF: "fra",
+  PG: "eng",
+  PH: "eng",
+  PK: "urd",
+  PL: "pol",
+  PM: "fra",
+  PR: "spa",
+  PS: "ara",
+  PT: "por",
+  PW: "eng",
+  PY: "spa",
+  QA: "ara",
+  RE: "fra",
+  RO: "ron",
+  RS: "srp",
+  RU: "rus",
+  RW: "kin",
+  SA: "ara",
+  SB: "eng",
+  SC: "fra",
+  SD: "ara",
+  SE: "swe",
+  SG: "eng",
+  SH: "eng",
+  SI: "slv",
+  SK: "slk",
+  SL: "eng",
+  SM: "ita",
+  SN: "fra",
+  SO: "som",
+  SR: "nld",
+  SS: "eng",
+  ST: "por",
+  SV: "spa",
+  SX: "nld",
+  SY: "ara",
+  SZ: "eng",
+  TC: "eng",
+  TD: "fra",
+  TG: "fra",
+  TH: "tha",
+  TJ: "tgk",
+  TK: "eng",
+  TL: "por",
+  TM: "tuk",
+  TN: "ara",
+  TO: "eng",
+  TR: "tur",
+  TT: "eng",
+  TV: "eng",
+  TW: "zho",
+  TZ: "swa",
+  UA: "ukr",
+  UG: "eng",
+  US: "eng",
+  UY: "spa",
+  UZ: "uzb",
+  VA: "ita",
+  VC: "eng",
+  VE: "spa",
+  VG: "eng",
+  VI: "eng",
+  VN: "vie",
+  VU: "bis",
+  WF: "fra",
+  WS: "eng",
+  YE: "ara",
+  YT: "fra",
+  ZA: "eng",
+  ZM: "eng",
+  ZW: "eng"
+};
 const COUNTRY_CODES = [
   "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT", "AU", "AW", "AX", "AZ",
   "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS",
@@ -27,7 +265,6 @@ const COUNTRY_CODES = [
 const state = {
   client: null,
   session: null,
-  mediaType: "series",
   statusFilter: "all",
   library: [],
   friendNotifications: [],
@@ -67,6 +304,7 @@ const els = {
   accountDetails: document.querySelector("#accountDetails"),
   settingsLogoutButton: document.querySelector("#settingsLogoutButton"),
   settingsMessage: document.querySelector("#settingsMessage"),
+  profileButton: document.querySelector("#profileButton"),
   notificationsButton: document.querySelector("#notificationsButton"),
   notificationsBadge: document.querySelector("#notificationsBadge"),
   notificationsDialog: document.querySelector("#notificationsDialog"),
@@ -109,6 +347,7 @@ function bindEvents() {
   els.clearResultsButton?.addEventListener("click", clearResults);
   els.settingsLogoutButton?.addEventListener("click", logout);
   els.settingsButton?.addEventListener("click", () => els.settingsDialog?.showModal());
+  els.profileButton?.addEventListener("click", openOwnProfileUrl);
   els.notificationsButton?.addEventListener("click", () => {
     renderNotifications();
     els.notificationsDialog?.showModal();
@@ -116,14 +355,6 @@ function bindEvents() {
   els.usernameInput?.addEventListener("input", normalizeUsernameInput);
   els.birthDateInput?.addEventListener("input", formatBirthDateInput);
   els.birthDateInput?.addEventListener("keydown", handleBirthDateSlash);
-
-  document.querySelectorAll("[data-type]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.mediaType = button.dataset.type;
-      setActive("[data-type]", button);
-      clearResults();
-    });
-  });
 
   document.querySelectorAll("[data-status]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -194,7 +425,7 @@ function updateSessionUi() {
   if (els.appControls) els.appControls.hidden = false;
   if (els.libraryPanel) els.libraryPanel.hidden = false;
   if (els.settingsButton) els.settingsButton.hidden = false;
-  if (els.notificationsButton) els.notificationsButton.hidden = false;
+  renderNotificationBadge();
   updateAccountDetails();
 }
 
@@ -479,6 +710,10 @@ function updateAccountDetails() {
   els.settingsLogoutButton.hidden = false;
 }
 
+function openOwnProfileUrl() {
+  window.location.href = "profile.html";
+}
+
 async function searchTheTvdb() {
   const query = els.searchInput.value.trim();
   if (!query || !state.client) return;
@@ -489,7 +724,9 @@ async function searchTheTvdb() {
   try {
     const session = await state.client.auth.getSession();
     const token = session.data.session?.access_token || state.config.supabaseAnonKey;
-    const params = new URLSearchParams({ q: query, type: state.mediaType });
+    const params = new URLSearchParams({ q: query });
+    const language = getCurrentTvdbLanguage();
+    if (language) params.set("language", language);
     const response = await fetch(`${state.config.supabaseUrl}/functions/v1/tvdb-search?${params}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
@@ -510,8 +747,17 @@ function renderSearchResults(items) {
     return;
   }
 
-  items.slice(0, 15).forEach((item) => {
-    const normalized = normalizeTvdbItem(item);
+  const mediaItems = items
+    .map(normalizeTvdbItem)
+    .filter((item) => item.mediaType)
+    .slice(0, 15);
+
+  if (!mediaItems.length) {
+    els.resultsList.innerHTML = `<p class="message">Aucun film ou série trouvé.</p>`;
+    return;
+  }
+
+  mediaItems.forEach((normalized) => {
     const card = createMediaCard(normalized);
     const addButton = actionButton("Ajouter", () => upsertMedia(normalized, "watchlist"));
     card.querySelector(".card-actions").append(addButton);
@@ -549,11 +795,12 @@ async function loadFriendNotifications() {
 }
 
 function renderNotificationBadge() {
-  if (!els.notificationsBadge) return;
-
   const count = state.friendNotifications.length;
-  els.notificationsBadge.hidden = count === 0;
-  els.notificationsBadge.textContent = String(count);
+  if (els.notificationsButton) els.notificationsButton.hidden = count === 0;
+  if (els.notificationsBadge) {
+    els.notificationsBadge.hidden = count === 0;
+    els.notificationsBadge.textContent = String(count);
+  }
 }
 
 function renderNotifications() {
@@ -672,19 +919,80 @@ function createMediaCard(item) {
 
 function normalizeTvdbItem(item) {
   const image = item.image_url || item.thumbnail || item.poster || item.image;
+  const language = getCurrentTvdbLanguage();
   return {
     tvdbId: item.tvdb_id || item.id,
-    mediaType: item.type || state.mediaType,
-    title: item.name || item.title || item.translations?.fra || "Sans titre",
+    mediaType: normalizeMediaType(item.type),
+    title: pickLocalizedValue(item, ["name", "title"], language) || "Sans titre",
     imageUrl: image?.startsWith("http") ? image : image ? `${POSTER_BASE}${image}` : "",
     year: item.year || item.first_air_time?.slice(0, 4) || item.release_year || "",
-    overview: item.overview || item.description || ""
+    overview: pickLocalizedValue(item, ["overview", "description"], language)
   };
 }
 
 function mediaKindLabel(type, status) {
   const kind = type === "movie" ? "Film" : "Série";
   return status ? `${kind} · ${STATUSES[status] || status}` : kind;
+}
+
+function normalizeMediaType(type) {
+  const normalized = String(type || "").toLowerCase();
+  if (normalized === "movie" || normalized === "series") return normalized;
+  return "";
+}
+
+function getCurrentTvdbLanguage() {
+  const metadata = state.session?.user?.user_metadata || {};
+  return getTvdbLanguageForCountry(metadata.country || "FR");
+}
+
+function getTvdbLanguageForCountry(country) {
+  return COUNTRY_LANGUAGE_CODES[String(country || "").toUpperCase()] || "eng";
+}
+
+function pickLocalizedValue(item, fields, language) {
+  const translations = item.translations || {};
+  const languageValue = getTranslationValue(translations, language, fields);
+  if (languageValue) return languageValue;
+
+  const englishValue = getTranslationValue(translations, "eng", fields);
+  if (englishValue) return englishValue;
+
+  for (const field of fields) {
+    if (item[field]) return item[field];
+  }
+
+  return "";
+}
+
+function getTranslationValue(translations, language, fields) {
+  if (!translations || !language) return "";
+
+  const directTranslation = translations[language];
+  const directValue = normalizeTranslationValue(directTranslation, fields);
+  if (directValue) return directValue;
+
+  if (!Array.isArray(translations)) return "";
+
+  const languageTranslation = translations.find((translation) => {
+    return [translation.language, translation.language_code, translation.iso_639_2, translation.iso639_2]
+      .filter(Boolean)
+      .map((value) => String(value).toLowerCase())
+      .includes(language);
+  });
+
+  return normalizeTranslationValue(languageTranslation, fields);
+}
+
+function normalizeTranslationValue(translation, fields) {
+  if (!translation) return "";
+  if (typeof translation === "string") return translation;
+
+  for (const field of fields) {
+    if (translation[field]) return translation[field];
+  }
+
+  return "";
 }
 
 function actionButton(label, onClick) {

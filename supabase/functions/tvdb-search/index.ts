@@ -16,27 +16,99 @@ Deno.serve(async (request) => {
 
     const url = new URL(request.url);
     const query = url.searchParams.get("q")?.trim();
-    const type = url.searchParams.get("type") || "series";
+    const type = url.searchParams.get("type")?.trim();
+    const language = url.searchParams.get("language")?.trim();
     if (!query) throw new Error("Missing q parameter");
 
     const token = await getTvdbToken(apiKey, pin);
-    const searchUrl = new URL(`${TVDB_API_BASE}/search`);
-    searchUrl.searchParams.set("query", query);
-    searchUrl.searchParams.set("type", type);
+    const languages = uniqueLanguages([language, "eng", ""]);
+    const payloads = [];
 
-    const tvdbResponse = await fetch(searchUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json"
-      }
+    for (const searchLanguage of languages) {
+      const payload = await searchTvdb({ token, query, type, language: searchLanguage });
+      payloads.push(payload);
+      if (Array.isArray(payload.data) && payload.data.length > 0 && searchLanguage !== language) break;
+    }
+
+    const [firstPayload] = payloads;
+    return json({
+      ...firstPayload,
+      data: mergeTvdbResults(payloads)
     });
-
-    const payload = await tvdbResponse.json();
-    return json(payload, tvdbResponse.status);
   } catch (error) {
-    return json({ error: error.message }, 400);
+    return json({ error: getErrorMessage(error) }, 400);
   }
 });
+
+async function searchTvdb({
+  token,
+  query,
+  type,
+  language
+}: {
+  token: string;
+  query: string;
+  type?: string;
+  language?: string;
+}) {
+  const searchUrl = new URL(`${TVDB_API_BASE}/search`);
+  searchUrl.searchParams.set("query", query);
+  if (type) searchUrl.searchParams.set("type", type);
+  if (language) searchUrl.searchParams.set("language", language);
+
+  const tvdbResponse = await fetch(searchUrl, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    }
+  });
+
+  const payload = await tvdbResponse.json();
+  if (!tvdbResponse.ok) {
+    throw new Error(payload.message || "TheTVDB search failed");
+  }
+
+  return payload;
+}
+
+function uniqueLanguages(languages: Array<string | undefined>) {
+  return languages.filter((language, index, list) => {
+    return language !== undefined && list.indexOf(language) === index;
+  }) as string[];
+}
+
+function mergeTvdbResults(payloads: Array<{ data?: unknown[] }>) {
+  const seen = new Set<string>();
+  const results: unknown[] = [];
+
+  payloads.forEach((payload) => {
+    if (!Array.isArray(payload.data)) return;
+
+    payload.data.forEach((item) => {
+      const key = getTvdbResultKey(item);
+      if (seen.has(key)) return;
+
+      seen.add(key);
+      results.push(item);
+    });
+  });
+
+  return results;
+}
+
+function getTvdbResultKey(item: unknown) {
+  if (!item || typeof item !== "object") return JSON.stringify(item);
+
+  const result = item as { id?: unknown; tvdb_id?: unknown; type?: unknown; name?: unknown; title?: unknown };
+  return [
+    result.type || "",
+    result.tvdb_id || result.id || result.name || result.title || JSON.stringify(result)
+  ].join(":");
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Erreur inconnue.";
+}
 
 async function getTvdbToken(apiKey: string, pin?: string | null) {
   const credentials: { apikey: string; pin?: string } = { apikey: apiKey };

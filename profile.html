@@ -17,7 +17,7 @@
         <h1 id="siteTitle" style="cursor:pointer;" onclick="window.location.href='app.html'">Streamory</h1>
       </div>
       <div class="header-actions">
-        <button class="icon-button notification-button" id="notificationsButton" type="button" aria-label="Notifications">🔔<span id="notificationsBadge" class="notification-badge" hidden>0</span></button>
+        <button class="icon-button notification-button" id="notificationsButton" type="button" aria-label="Notifications" hidden>🔔<span id="notificationsBadge" class="notification-badge" hidden>0</span></button>
         <button class="icon-button" id="settingsButton" type="button" style="width:44px;height:44px;border-radius:12px;background:#101215;display:flex;align-items:center;justify-content:center;">⚙️</button>
       </div>
     </header>
@@ -32,14 +32,46 @@
                 <h2 id="profileUsername" style="margin:0;overflow-wrap:anywhere;">Nom d'utilisateur</h2>
                 <span id="profileCountryFlag" style="font-size:28px;">🇫🇷</span>
               </div>
-              <p class="social-meta" id="profilePublicHandle"></p>
             </div>
           </div>
           <button class="friend-count-button" id="friendsButton" type="button">0 ami</button>
         </div>
-        <div class="profile-actions">
-          <button class="text-button" id="shareProfileButton" type="button">Partager</button>
+      </section>
+
+      <section class="library profile-stats-card">
+        <div class="section-title">
+          <h2>Statistiques</h2>
         </div>
+        <div class="profile-stats-grid">
+          <div class="profile-stat">
+            <span class="profile-stat-value">--</span>
+            <span class="profile-stat-label">heures regardées</span>
+          </div>
+          <div class="profile-stat">
+            <span class="profile-stat-value">--</span>
+            <span class="profile-stat-label">films vus</span>
+          </div>
+          <div class="profile-stat">
+            <span class="profile-stat-value">--</span>
+            <span class="profile-stat-label">épisodes vus</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="library profile-rail-card">
+        <div class="section-title">
+          <h2>Séries</h2>
+        </div>
+        <div class="profile-poster-rail" id="profileSeriesRail"></div>
+        <p class="message profile-rail-empty" id="profileSeriesEmpty">Aucune série suivie pour le moment.</p>
+      </section>
+
+      <section class="library profile-rail-card">
+        <div class="section-title">
+          <h2>Films</h2>
+        </div>
+        <div class="profile-poster-rail" id="profileMoviesRail"></div>
+        <p class="message profile-rail-empty" id="profileMoviesEmpty">Aucun film ajouté pour le moment.</p>
       </section>
     </main>
   </div>
@@ -63,9 +95,30 @@
         <input id="editEmail" type="email">
       </label>
 
-      <label>Nouveau mot de passe
-        <input id="editPassword" type="password" autocomplete="new-password">
-      </label>
+      <div class="password-change-row">
+        <label>Ancien mot de passe
+          <input id="editCurrentPassword" type="password" autocomplete="current-password">
+        </label>
+        <span class="password-arrow">→</span>
+        <label>Nouveau mot de passe
+          <input id="editNewPassword" type="password" autocomplete="new-password">
+        </label>
+      </div>
+
+      <div class="tvtime-import-box">
+        <div>
+          <h3>Import data from TVTime</h3>
+          <p class="hint">Choisis l'export films et l'export séries JSON de TVTime.</p>
+        </div>
+        <label>Fichier films
+          <input id="tvtimeMoviesFile" type="file" accept="application/json,.json">
+        </label>
+        <label>Fichier séries
+          <input id="tvtimeSeriesFile" type="file" accept="application/json,.json">
+        </label>
+        <button class="secondary-button" id="importTvtimeButton" type="button">Importer data from TVTime</button>
+        <p class="message" id="tvtimeImportMessage"></p>
+      </div>
 
       <button class="primary-button" id="saveProfileButton" type="button">Enregistrer</button>
       <button class="secondary-button danger-button" id="logoutButton" type="button">Se déconnecter</button>
