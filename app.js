@@ -93,19 +93,19 @@ function preventPageZoom() {
 }
 
 function bindEvents() {
-  els.showLoginButton.addEventListener("click", () => setAuthMode("login"));
-  els.showSignupButton.addEventListener("click", () => setAuthMode("signup"));
-  els.loginForm.addEventListener("submit", handleLogin);
-  els.signupForm.addEventListener("submit", handleSignup);
-  els.searchButton.addEventListener("click", searchTheTvdb);
-  els.searchInput.addEventListener("keydown", (event) => {
+  els.showLoginButton?.addEventListener("click", () => setAuthMode("login"));
+  els.showSignupButton?.addEventListener("click", () => setAuthMode("signup"));
+  els.loginForm?.addEventListener("submit", handleLogin);
+  els.signupForm?.addEventListener("submit", handleSignup);
+  els.searchButton?.addEventListener("click", searchTheTvdb);
+  els.searchInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchTheTvdb();
   });
-  els.clearResultsButton.addEventListener("click", clearResults);
-  els.settingsLogoutButton.addEventListener("click", logout);
-  els.settingsButton.addEventListener("click", () => els.settingsDialog.showModal());
-  els.birthDateInput.addEventListener("input", formatBirthDateInput);
-  els.birthDateInput.addEventListener("keydown", handleBirthDateSlash);
+  els.clearResultsButton?.addEventListener("click", clearResults);
+  els.settingsLogoutButton?.addEventListener("click", logout);
+  els.settingsButton?.addEventListener("click", () => els.settingsDialog?.showModal());
+  els.birthDateInput?.addEventListener("input", formatBirthDateInput);
+  els.birthDateInput?.addEventListener("keydown", handleBirthDateSlash);
 
   document.querySelectorAll("[data-type]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -126,10 +126,10 @@ function bindEvents() {
 
 function loadConfig() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-  const bundled = window.STREAMORY_CONFIG || {};
+  const bundled = window.CONFIG || {};
   return {
-    supabaseUrl: saved.supabaseUrl || bundled.supabaseUrl || "",
-    supabaseAnonKey: saved.supabaseAnonKey || bundled.supabaseAnonKey || ""
+    supabaseUrl: saved.supabaseUrl || bundled.SUPABASE_URL || bundled.supabaseUrl || "",
+    supabaseAnonKey: saved.supabaseAnonKey || bundled.SUPABASE_ANON_KEY || bundled.supabaseAnonKey || ""
   };
 }
 
@@ -169,20 +169,30 @@ function updateSessionUi() {
     return;
   }
 
-  els.authPanel.hidden = true;
-  els.appControls.hidden = false;
-  els.libraryPanel.hidden = false;
-  els.settingsButton.hidden = false;
+  if (window.location.pathname.endsWith("/index.html") || window.location.pathname.endsWith("/")) {
+    window.location.href = "app.html";
+    return;
+  }
+
+  if (els.authPanel) els.authPanel.hidden = true;
+  if (els.appControls) els.appControls.hidden = false;
+  if (els.libraryPanel) els.libraryPanel.hidden = false;
+  if (els.settingsButton) els.settingsButton.hidden = false;
   updateAccountDetails();
 }
 
 function showSignedOut(message) {
-  els.authPanel.hidden = false;
-  els.appControls.hidden = true;
-  els.libraryPanel.hidden = true;
-  els.settingsButton.hidden = true;
-  els.loginMessage.textContent = message;
-  els.signupMessage.textContent = "";
+  if (window.location.pathname.endsWith("/app.html")) {
+    window.location.replace("index.html");
+    return;
+  }
+
+  if (els.authPanel) els.authPanel.hidden = false;
+  if (els.appControls) els.appControls.hidden = true;
+  if (els.libraryPanel) els.libraryPanel.hidden = true;
+  if (els.settingsButton) els.settingsButton.hidden = true;
+  if (els.loginMessage) els.loginMessage.textContent = message;
+  if (els.signupMessage) els.signupMessage.textContent = "";
   updateAccountDetails();
 }
 
@@ -254,10 +264,10 @@ function populateCountries() {
     const option = document.createElement("option");
     option.value = country.code;
     option.textContent = `${regionToFlag(country.code)} ${country.label}`;
-    els.countryInput.append(option);
+    els.countryInput?.append(option);
   });
 
-  els.countryInput.value = "FR";
+  if (els.countryInput) els.countryInput.value = "FR";
 }
 
 function regionToFlag(regionCode) {
@@ -274,12 +284,18 @@ async function handleLogin(event) {
   }
 
   try {
-    const { error } = await state.client.auth.signInWithPassword({
-      email: els.loginEmailInput.value.trim(),
+    const { data, error } = await state.client.auth.signInWithPassword({      email: els.loginEmailInput.value.trim(),
       password: els.loginPasswordInput.value
     });
 
-    els.loginMessage.textContent = error ? formatAuthError(error) : "";
+    if (error) {
+      els.loginMessage.textContent = formatAuthError(error);
+      return;
+    }
+
+    state.session = data.session;
+    window.location.replace("app.html");
+    return;
   } finally {
     setAuthLoading("login", false);
   }
@@ -371,12 +387,13 @@ async function logout() {
   if (!state.client) return;
   await state.client.auth.signOut();
   state.library = [];
-  resetAuthForms();
-  renderLibrary();
-  els.settingsDialog.close();
+  els.settingsDialog?.close();
+  window.location.href = "index.html";
 }
 
 function updateAccountDetails() {
+  if (!els.accountDetails || !els.settingsLogoutButton) return;
+
   if (!state.session) {
     els.accountDetails.textContent = "Connecte-toi pour gérer ton compte.";
     els.settingsLogoutButton.hidden = true;

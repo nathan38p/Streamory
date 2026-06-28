@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#050607" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#050607">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Streamory">
+    <title>Streamory — Suivi</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1 id="siteTitle">Streamory</h1>
+        </div>
+        <button class="icon-button" id="settingsButton" type="button" aria-label="Réglages">⚙</button>
+      </header>
+
+      <main>
+        <section class="controls" id="appControls">
+          <div class="search-box">
+            <label for="searchInput">Recherche TheTVDB</label>
+            <div class="search-row">
+              <input id="searchInput" type="search" placeholder="The Bear, Severance, Dune...">
+              <button class="primary-button" id="searchButton" type="button">Chercher</button>
+            </div>
+          </div>
+          <div class="segmented" role="tablist" aria-label="Type de média">
+            <button class="segment active" type="button" data-type="series">Séries</button>
+            <button class="segment" type="button" data-type="movie">Films</button>
+          </div>
+        </section>
+
+        <section class="search-results" id="searchResults" hidden>
+          <div class="section-title">
+            <h2>Résultats</h2>
+            <button class="text-button" id="clearResultsButton" type="button">Effacer</button>
+          </div>
+          <div class="media-list" id="resultsList"></div>
+        </section>
+
+        <section class="library" id="libraryPanel">
+          <div class="section-title">
+            <h2>Ma liste</h2>
+          </div>
+          <div class="filters" aria-label="Filtres">
+            <button class="filter active" type="button" data-status="all">Tout</button>
+            <button class="filter" type="button" data-status="watchlist">À voir</button>
+            <button class="filter" type="button" data-status="watching">En cours</button>
+            <button class="filter" type="button" data-status="watched">Vu</button>
+          </div>
+          <div class="empty-state" id="emptyState">
+            <h3>Ta liste est vide</h3>
+            <p>Recherche un film ou une série pour l’ajouter.</p>
+          </div>
+          <div class="media-list" id="libraryList"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="settings-dialog" id="settingsDialog">
+      <form method="dialog" class="settings-content">
+        <div class="section-title">
+          <h2>Réglages</h2>
+          <button class="icon-button" value="close" aria-label="Fermer">×</button>
+        </div>
+        <p class="hint" id="accountDetails">Connecté à Streamory.</p>
+        <button class="secondary-button danger-button" id="settingsLogoutButton" type="button">Se déconnecter</button>
+        <p class="message" id="settingsMessage"></p>
+      </form>
+    </dialog>
+
+    <template id="mediaCardTemplate">
+      <article class="media-card">
+        <img class="poster" alt="">
+        <div class="media-body">
+          <div>
+            <p class="media-kind"></p>
+            <h3 class="media-title"></h3>
+            <p class="media-meta"></p>
+            <p class="media-overview"></p>
+          </div>
+          <div class="card-actions"></div>
+        </div>
+      </article>
+    </template>
+
+    <script src="config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
