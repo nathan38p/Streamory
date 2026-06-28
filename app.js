@@ -273,7 +273,6 @@ async function handleLogin(event) {
     return;
   }
 
-  setAuthLoading("login", true, "Connexion...");
   try {
     const { error } = await state.client.auth.signInWithPassword({
       email: els.loginEmailInput.value.trim(),
