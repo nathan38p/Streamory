@@ -395,6 +395,14 @@ select:focus {
   font-weight: 700;
 }
 
+.profile-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 8px 0;
+}
+
 .friend-add-box {
   display: grid;
   gap: 10px;

@@ -2,10 +2,12 @@
 
 const profileEls = {
   profileUsername: document.getElementById("profileUsername"),
+  profilePublicHandle: document.getElementById("profilePublicHandle"),
   profileCountryFlag: document.getElementById("profileCountryFlag"),
   settingsButton: document.getElementById("settingsButton"),
   settingsDialog: document.getElementById("settingsDialog"),
   friendsButton: document.getElementById("friendsButton"),
+  shareProfileButton: document.getElementById("shareProfileButton"),
   friendsDialog: document.getElementById("friendsDialog"),
   friendsList: document.getElementById("friendsList"),
   friendSearchInput: document.getElementById("friendSearchInput"),
@@ -96,6 +98,7 @@ function bindProfileEvents() {
     renderFriendsList();
     profileEls.friendsDialog?.showModal();
   });
+  profileEls.shareProfileButton?.addEventListener("click", sharePublicProfile);
 
   profileEls.friendSearchButton?.addEventListener("click", searchFriends);
   profileEls.friendSearchInput?.addEventListener("keydown", (event) => {
@@ -105,6 +108,7 @@ function bindProfileEvents() {
     }
   });
 
+  profileEls.editUsername?.addEventListener("input", normalizeUsernameInput);
   profileEls.notificationsButton?.addEventListener("click", () => {
     renderNotificationsList();
     profileEls.notificationsDialog?.showModal();
@@ -123,7 +127,43 @@ function renderProfile() {
   const country = metadata.country || "FR";
 
   if (profileEls.profileUsername) profileEls.profileUsername.textContent = username;
+  if (profileEls.profilePublicHandle) profileEls.profilePublicHandle.textContent = `@${normalizeUsername(username)}`;
   if (profileEls.profileCountryFlag) profileEls.profileCountryFlag.textContent = regionToFlag(country);
+}
+
+function getPublicProfileUrl(username = getCurrentPublicUsername()) {
+  const url = new URL("user.html", window.location.href);
+  url.searchParams.set("u", normalizeUsername(username));
+  return url.href;
+}
+
+function getCurrentPublicUsername() {
+  return normalizeUsername(getProfileDisplayName(profileSession?.user || {}));
+}
+
+function openPublicProfile(username) {
+  window.location.href = getPublicProfileUrl(username);
+}
+
+async function sharePublicProfile() {
+  const url = getPublicProfileUrl();
+
+  if (navigator.share) {
+    await navigator.share({
+      title: "Mon profil Streamory",
+      text: "Voici mon profil Streamory.",
+      url
+    });
+    return;
+  }
+
+  if (navigator.clipboard) {
+    await navigator.clipboard.writeText(url);
+    alert("Lien du profil copié.");
+    return;
+  }
+
+  window.prompt("Lien du profil", url);
 }
 
 async function loadProfileSocialData() {
@@ -190,7 +230,10 @@ function renderFriendsList() {
     profileEls.friendsList.append(createSocialItem({
       username: friend.username,
       country: friend.country,
-      meta: "Ami"
+      meta: "Ami",
+      actions: [
+        { label: "Profil", onClick: () => openPublicProfile(friend.username) }
+      ]
     }));
   });
 }
@@ -300,7 +343,7 @@ function fillSettingsForm() {
 
   const metadata = user.user_metadata || {};
 
-  if (profileEls.editUsername) profileEls.editUsername.value = metadata.display_name || metadata.username || "";
+  if (profileEls.editUsername) profileEls.editUsername.value = normalizeUsername(metadata.display_name || metadata.username || "");
   if (profileEls.editCountry) profileEls.editCountry.value = metadata.country || "FR";
   if (profileEls.editEmail) profileEls.editEmail.value = user.email || "";
   if (profileEls.editPassword) profileEls.editPassword.value = "";
@@ -312,14 +355,16 @@ async function saveProfile() {
   const currentUser = profileSession.user;
   const currentMetadata = currentUser.user_metadata || {};
 
-  const username = profileEls.editUsername?.value.trim() || "";
+  const username = normalizeUsername(profileEls.editUsername?.value || "");
   const country = profileEls.editCountry?.value || "FR";
   const email = profileEls.editEmail?.value.trim() || currentUser.email;
   const password = profileEls.editPassword?.value || "";
   const currentUsername = getProfileDisplayName(currentUser);
 
-  if (username.length < 3 || username.length > 28) {
-    alert("Le nom d'utilisateur doit contenir entre 3 et 28 caractères.");
+  if (profileEls.editUsername) profileEls.editUsername.value = username;
+
+  if (!isValidUsername(username)) {
+    alert("Le display name doit contenir 3 à 28 caractères: lettres minuscules, chiffres, points, tirets ou underscores seulement.");
     return;
   }
 
@@ -348,7 +393,7 @@ async function saveProfile() {
   profileEls.saveProfileButton.disabled = true;
 
   try {
-    if (username.toLowerCase() !== currentUsername.toLowerCase()) {
+    if (username !== normalizeUsername(currentUsername)) {
       const isAvailable = await isUsernameAvailable(username);
 
       if (!isAvailable) {
@@ -413,6 +458,18 @@ function regionToFlag(regionCode) {
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt()));
 }
 
+function normalizeUsernameInput(event) {
+  event.target.value = normalizeUsername(event.target.value);
+}
+
+function normalizeUsername(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 28);
+}
+
+function isValidUsername(username) {
+  return /^[a-z0-9._-]{3,28}$/.test(username);
+}
+
 function getProfileDisplayName(user) {
   const metadata = user.user_metadata || {};
   return metadata.display_name || metadata.username || user.email?.split("@")[0] || "Utilisateur";
@@ -421,9 +478,9 @@ function getProfileDisplayName(user) {
 async function syncLegacyDisplayName() {
   const user = profileSession?.user;
   const metadata = user?.user_metadata || {};
-  const legacyName = metadata.username || user?.email?.split("@")[0];
+  const legacyName = normalizeUsername(metadata.username || user?.email?.split("@")[0]);
 
-  if (!profileClient || !user || metadata.display_name || !legacyName) return;
+  if (!profileClient || !user || metadata.display_name || !isValidUsername(legacyName)) return;
 
   const { data, error } = await profileClient.auth.updateUser({
     data: {

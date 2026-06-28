@@ -113,6 +113,7 @@ function bindEvents() {
     renderNotifications();
     els.notificationsDialog?.showModal();
   });
+  els.usernameInput?.addEventListener("input", normalizeUsernameInput);
   els.birthDateInput?.addEventListener("input", formatBirthDateInput);
   els.birthDateInput?.addEventListener("keydown", handleBirthDateSlash);
 
@@ -265,6 +266,18 @@ function handleBirthDateSlash(event) {
   }
 }
 
+function normalizeUsernameInput(event) {
+  event.target.value = normalizeUsername(event.target.value);
+}
+
+function normalizeUsername(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 28);
+}
+
+function isValidUsername(username) {
+  return /^[a-z0-9._-]{3,28}$/.test(username);
+}
+
 function populateCountries() {
   const countryNames = Intl.DisplayNames
     ? new Intl.DisplayNames(["fr"], { type: "region" })
@@ -339,7 +352,14 @@ async function handleSignup(event) {
   }
 
   try {
-    const username = els.usernameInput.value.trim();
+    const username = normalizeUsername(els.usernameInput.value);
+    els.usernameInput.value = username;
+
+    if (!isValidUsername(username)) {
+      els.signupMessage.textContent = "Le display name doit contenir 3 à 28 caractères: lettres minuscules, chiffres, points, tirets ou underscores seulement.";
+      return;
+    }
+
     const usernameAvailable = await isUsernameAvailable(state.client, username);
 
     if (!usernameAvailable) {

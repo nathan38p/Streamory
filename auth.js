@@ -124,7 +124,7 @@ async function handleSignup(event) {
   authEls.usernameInput.value = username;
 
   if (!isValidUsername(username)) {
-    setSignupMessage("Le display name doit contenir 3 à 28 caractères: lettres minuscules et chiffres seulement.");
+    setSignupMessage("Le display name doit contenir 3 à 28 caractères: lettres minuscules, chiffres, points, tirets ou underscores seulement.");
     return;
   }
 
@@ -234,11 +234,11 @@ function normalizeUsernameInput(event) {
 }
 
 function normalizeUsername(value) {
-  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 28);
+  return String(value || "").toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, 28);
 }
 
 function isValidUsername(username) {
-  return /^[a-z0-9]{3,28}$/.test(username);
+  return /^[a-z0-9._-]{3,28}$/.test(username);
 }
 
 function formatAuthError(error) {

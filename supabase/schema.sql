@@ -53,8 +53,11 @@ create table if not exists public.profiles (
 );
 
 alter table public.profiles drop constraint if exists profiles_username_key;
+alter table public.profiles drop constraint if exists profiles_username_format_check;
 create unique index if not exists profiles_username_lower_key
   on public.profiles (lower(username));
+alter table public.profiles add constraint profiles_username_format_check
+  check (username ~ '^[a-z0-9._-]{3,28}$') not valid;
 
 alter table public.profiles enable row level security;
 
@@ -64,12 +67,27 @@ language sql
 security definer
 set search_path = public
 as $$
-  select nullif(btrim(candidate), '') is not null
+  select btrim(candidate) ~ '^[a-z0-9._-]{3,28}$'
     and not exists (
       select 1
       from public.profiles
       where lower(username) = lower(btrim(candidate))
     );
+$$;
+
+create or replace function public.normalize_streamory_username(raw_username text, fallback_user_id uuid)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+  select case
+    when length(cleaned.username) >= 3 then substring(cleaned.username from 1 for 28)
+    else 'user' || replace(substring(fallback_user_id::text from 1 for 8), '-', '')
+  end
+  from (
+    select regexp_replace(lower(coalesce(raw_username, '')), '[^a-z0-9._-]', '', 'g') as username
+  ) cleaned;
 $$;
 
 do $$
@@ -111,7 +129,10 @@ begin
   insert into public.profiles (user_id, username, birth_date, country, country_label)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'display_name', new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
+    public.normalize_streamory_username(
+      coalesce(new.raw_user_meta_data ->> 'display_name', new.raw_user_meta_data ->> 'username', split_part(new.email, '@', 1)),
+      new.id
+    ),
     nullif(new.raw_user_meta_data ->> 'birth_date', '')::date,
     nullif(new.raw_user_meta_data ->> 'country', ''),
     nullif(new.raw_user_meta_data ->> 'country_label', '')
@@ -137,6 +158,24 @@ create trigger on_auth_user_created_streamory
 create trigger on_auth_user_updated_streamory
   after update of raw_user_meta_data on auth.users
   for each row execute function public.handle_new_streamory_user();
+
+insert into public.profiles (user_id, username, birth_date, country, country_label)
+select
+  users.id,
+  public.normalize_streamory_username(
+    coalesce(users.raw_user_meta_data ->> 'display_name', users.raw_user_meta_data ->> 'username', split_part(users.email, '@', 1)),
+    users.id
+  ),
+  nullif(users.raw_user_meta_data ->> 'birth_date', '')::date,
+  nullif(users.raw_user_meta_data ->> 'country', ''),
+  nullif(users.raw_user_meta_data ->> 'country_label', '')
+from auth.users users
+on conflict (user_id) do update set
+  username = excluded.username,
+  birth_date = excluded.birth_date,
+  country = excluded.country,
+  country_label = excluded.country_label,
+  updated_at = now();
 
 create table if not exists public.friend_requests (
   id uuid primary key default gen_random_uuid(),
@@ -256,6 +295,40 @@ as $$
     and fr.status = 'accepted'
     and (fr.requester_id = auth.uid() or fr.addressee_id = auth.uid())
   order by p.username;
+$$;
+
+create or replace function public.get_streamory_public_profile(profile_username text)
+returns table (
+  user_id uuid,
+  username text,
+  country text,
+  friend_count bigint,
+  relationship_status text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    p.user_id,
+    p.username,
+    p.country,
+    count(accepted.id) as friend_count,
+    viewer_relation.status as relationship_status
+  from public.profiles p
+  left join public.friend_requests accepted
+    on accepted.status = 'accepted'
+   and (accepted.requester_id = p.user_id or accepted.addressee_id = p.user_id)
+  left join public.friend_requests viewer_relation
+    on auth.uid() is not null
+   and viewer_relation.status in ('pending', 'accepted')
+   and (
+      (viewer_relation.requester_id = auth.uid() and viewer_relation.addressee_id = p.user_id)
+      or (viewer_relation.addressee_id = auth.uid() and viewer_relation.requester_id = p.user_id)
+    )
+  where lower(p.username) = lower(btrim(profile_username))
+  group by p.user_id, p.username, p.country, viewer_relation.status
+  limit 1;
 $$;
 
 create or replace function public.list_streamory_friend_notifications()

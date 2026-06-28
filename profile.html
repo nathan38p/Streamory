@@ -32,9 +32,13 @@
                 <h2 id="profileUsername" style="margin:0;overflow-wrap:anywhere;">Nom d'utilisateur</h2>
                 <span id="profileCountryFlag" style="font-size:28px;">🇫🇷</span>
               </div>
+              <p class="social-meta" id="profilePublicHandle"></p>
             </div>
           </div>
           <button class="friend-count-button" id="friendsButton" type="button">0 ami</button>
+        </div>
+        <div class="profile-actions">
+          <button class="text-button" id="shareProfileButton" type="button">Partager</button>
         </div>
       </section>
     </main>
@@ -48,7 +52,7 @@
       </div>
 
       <label>Display name
-        <input id="editUsername" type="text" inputmode="latin" minlength="3" maxlength="28" pattern="[a-z0-9]{3,28}">
+        <input id="editUsername" type="text" inputmode="latin" minlength="3" maxlength="28" pattern="[a-z0-9._-]{3,28}">
       </label>
 
       <label>Pays
