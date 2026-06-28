@@ -1,4 +1,4 @@
-const CACHE_NAME = "streamory-v11";
+const CACHE_NAME = "streamory-v15";
 const ASSETS = [
   ".",
   "index.html",
