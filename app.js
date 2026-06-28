@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const STORAGE_KEY = "streamory-config";
 const POSTER_BASE = "https://artworks.thetvdb.com";
 const STATUSES = {
@@ -21,9 +19,22 @@ const els = {
   authPanel: document.querySelector("#authPanel"),
   appControls: document.querySelector("#appControls"),
   libraryPanel: document.querySelector("#libraryPanel"),
+  showLoginButton: document.querySelector("#showLoginButton"),
+  showSignupButton: document.querySelector("#showSignupButton"),
   loginForm: document.querySelector("#loginForm"),
-  emailInput: document.querySelector("#emailInput"),
-  authMessage: document.querySelector("#authMessage"),
+  signupForm: document.querySelector("#signupForm"),
+  loginEmailInput: document.querySelector("#loginEmailInput"),
+  loginPasswordInput: document.querySelector("#loginPasswordInput"),
+  usernameInput: document.querySelector("#usernameInput"),
+  signupEmailInput: document.querySelector("#signupEmailInput"),
+  signupPasswordInput: document.querySelector("#signupPasswordInput"),
+  confirmPasswordInput: document.querySelector("#confirmPasswordInput"),
+  birthDateInput: document.querySelector("#birthDateInput"),
+  countryInput: document.querySelector("#countryInput"),
+  loginMessage: document.querySelector("#loginMessage"),
+  signupMessage: document.querySelector("#signupMessage"),
+  loginButton: document.querySelector("#loginButton"),
+  signupButton: document.querySelector("#signupButton"),
   searchInput: document.querySelector("#searchInput"),
   searchButton: document.querySelector("#searchButton"),
   searchResults: document.querySelector("#searchResults"),
@@ -31,12 +42,10 @@ const els = {
   clearResultsButton: document.querySelector("#clearResultsButton"),
   libraryList: document.querySelector("#libraryList"),
   emptyState: document.querySelector("#emptyState"),
-  logoutButton: document.querySelector("#logoutButton"),
   settingsButton: document.querySelector("#settingsButton"),
   settingsDialog: document.querySelector("#settingsDialog"),
-  supabaseUrlInput: document.querySelector("#supabaseUrlInput"),
-  supabaseAnonInput: document.querySelector("#supabaseAnonInput"),
-  saveSettingsButton: document.querySelector("#saveSettingsButton"),
+  accountDetails: document.querySelector("#accountDetails"),
+  settingsLogoutButton: document.querySelector("#settingsLogoutButton"),
   settingsMessage: document.querySelector("#settingsMessage"),
   template: document.querySelector("#mediaCardTemplate")
 };
@@ -44,22 +53,24 @@ const els = {
 init();
 
 function init() {
+  populateCountries();
   bindEvents();
-  fillSettingsForm();
   connectSupabase();
   registerServiceWorker();
 }
 
 function bindEvents() {
+  els.showLoginButton.addEventListener("click", () => setAuthMode("login"));
+  els.showSignupButton.addEventListener("click", () => setAuthMode("signup"));
   els.loginForm.addEventListener("submit", handleLogin);
+  els.signupForm.addEventListener("submit", handleSignup);
   els.searchButton.addEventListener("click", searchTheTvdb);
   els.searchInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") searchTheTvdb();
   });
   els.clearResultsButton.addEventListener("click", clearResults);
-  els.logoutButton.addEventListener("click", logout);
+  els.settingsLogoutButton.addEventListener("click", logout);
   els.settingsButton.addEventListener("click", () => els.settingsDialog.showModal());
-  els.saveSettingsButton.addEventListener("click", saveSettings);
 
   document.querySelectorAll("[data-type]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -80,24 +91,25 @@ function bindEvents() {
 
 function loadConfig() {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+  const bundled = window.STREAMORY_CONFIG || {};
   return {
-    supabaseUrl: saved.supabaseUrl || window.STREAMORY_CONFIG?.supabaseUrl || "",
-    supabaseAnonKey: saved.supabaseAnonKey || window.STREAMORY_CONFIG?.supabaseAnonKey || ""
+    supabaseUrl: saved.supabaseUrl || bundled.supabaseUrl || "",
+    supabaseAnonKey: saved.supabaseAnonKey || bundled.supabaseAnonKey || ""
   };
-}
-
-function fillSettingsForm() {
-  els.supabaseUrlInput.value = state.config.supabaseUrl;
-  els.supabaseAnonInput.value = state.config.supabaseAnonKey;
 }
 
 async function connectSupabase() {
   if (!state.config.supabaseUrl || !state.config.supabaseAnonKey) {
-    showSignedOut("Ajoute tes infos Supabase dans les réglages.");
+    showSignedOut("Ajoute tes infos Supabase dans config.js.");
     return;
   }
 
-  state.client = createClient(state.config.supabaseUrl, state.config.supabaseAnonKey);
+  if (!window.supabase?.createClient) {
+    showSignedOut("Connexion Supabase impossible: la bibliothèque Supabase n'a pas chargé.");
+    return;
+  }
+
+  state.client = window.supabase.createClient(state.config.supabaseUrl, state.config.supabaseAnonKey);
   const { data } = await state.client.auth.getSession();
   state.session = data.session;
 
@@ -113,7 +125,7 @@ async function connectSupabase() {
 
 function updateSessionUi() {
   if (!state.client) {
-    showSignedOut("Ajoute tes infos Supabase dans les réglages.");
+    showSignedOut("Ajoute tes infos Supabase dans config.js.");
     return;
   }
 
@@ -125,31 +137,138 @@ function updateSessionUi() {
   els.authPanel.hidden = true;
   els.appControls.hidden = false;
   els.libraryPanel.hidden = false;
+  els.settingsButton.hidden = false;
+  updateAccountDetails();
 }
 
 function showSignedOut(message) {
   els.authPanel.hidden = false;
   els.appControls.hidden = true;
   els.libraryPanel.hidden = true;
-  els.authMessage.textContent = message;
+  els.settingsButton.hidden = true;
+  els.loginMessage.textContent = message;
+  els.signupMessage.textContent = "";
+  updateAccountDetails();
+}
+
+function setAuthMode(mode) {
+  const isLogin = mode === "login";
+  els.loginForm.hidden = !isLogin;
+  els.signupForm.hidden = isLogin;
+  els.showLoginButton.classList.toggle("active", isLogin);
+  els.showSignupButton.classList.toggle("active", !isLogin);
+  els.loginMessage.textContent = "";
+  els.signupMessage.textContent = "";
+}
+
+function populateCountries() {
+  if (!Intl.supportedValuesOf || !Intl.DisplayNames) return;
+
+  const countryNames = new Intl.DisplayNames(["fr"], { type: "region" });
+  const countries = Intl.supportedValuesOf("region")
+    .filter((code) => /^[A-Z]{2}$/.test(code))
+    .map((code) => ({
+      code,
+      label: countryNames.of(code)
+    }))
+    .filter((country) => country.label)
+    .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+
+  countries.forEach((country) => {
+    const option = document.createElement("option");
+    option.value = country.code;
+    option.textContent = `${regionToFlag(country.code)} ${country.label}`;
+    els.countryInput.append(option);
+  });
+}
+
+function regionToFlag(regionCode) {
+  return regionCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(char.charCodeAt(0) + 127397));
 }
 
 async function handleLogin(event) {
   event.preventDefault();
   if (!state.client) {
-    els.authMessage.textContent = "Configure Supabase avant la connexion.";
+    els.loginMessage.textContent = "Configure Supabase dans config.js avant la connexion.";
     return;
   }
 
-  els.authMessage.textContent = "Envoi du lien...";
-  const { error } = await state.client.auth.signInWithOtp({
-    email: els.emailInput.value,
-    options: { emailRedirectTo: window.location.href }
-  });
+  setAuthLoading("login", true, "Connexion...");
+  try {
+    const { error } = await state.client.auth.signInWithPassword({
+      email: els.loginEmailInput.value.trim(),
+      password: els.loginPasswordInput.value
+    });
 
-  els.authMessage.textContent = error
-    ? error.message
-    : "Lien envoyé. Ouvre-le sur ton iPhone pour te connecter.";
+    els.loginMessage.textContent = error ? formatAuthError(error) : "";
+  } finally {
+    setAuthLoading("login", false);
+  }
+}
+
+async function handleSignup(event) {
+  event.preventDefault();
+  if (!state.client) {
+    els.signupMessage.textContent = "Configure Supabase dans config.js avant la création du compte.";
+    return;
+  }
+
+  if (!els.signupForm.reportValidity()) return;
+
+  if (els.signupPasswordInput.value !== els.confirmPasswordInput.value) {
+    els.signupMessage.textContent = "Les deux mots de passe ne correspondent pas.";
+    return;
+  }
+
+  setAuthLoading("signup", true, "Création du compte...");
+  try {
+    const { data, error } = await state.client.auth.signUp({
+      email: els.signupEmailInput.value.trim(),
+      password: els.signupPasswordInput.value,
+      options: {
+        emailRedirectTo: getAuthRedirectUrl(),
+        data: {
+          username: els.usernameInput.value.trim(),
+          birth_date: els.birthDateInput.value,
+          country: els.countryInput.value,
+          country_label: els.countryInput.selectedOptions[0]?.textContent || ""
+        }
+      }
+    });
+
+    if (error) {
+      els.signupMessage.textContent = formatAuthError(error);
+      return;
+    }
+
+    els.signupMessage.textContent = data.session
+      ? ""
+      : "Compte créé. Si Supabase demande une confirmation, vérifie tes emails.";
+  } finally {
+    setAuthLoading("signup", false);
+  }
+}
+
+function getAuthRedirectUrl() {
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function setAuthLoading(mode, isLoading, message = "") {
+  const button = mode === "login" ? els.loginButton : els.signupButton;
+  const messageEl = mode === "login" ? els.loginMessage : els.signupMessage;
+  button.disabled = isLoading;
+  if (message) messageEl.textContent = message;
+}
+
+function formatAuthError(error) {
+  const message = error.message || "";
+  if (message.toLowerCase().includes("email rate limit")) {
+    return "Supabase a bloqué temporairement les emails. Désactive la confirmation email pendant le dev, attends la fin du blocage, ou crée l'utilisateur directement dans Supabase.";
+  }
+
+  return message;
 }
 
 async function logout() {
@@ -157,17 +276,20 @@ async function logout() {
   await state.client.auth.signOut();
   state.library = [];
   renderLibrary();
+  els.settingsDialog.close();
 }
 
-function saveSettings() {
-  state.config = {
-    supabaseUrl: els.supabaseUrlInput.value.trim().replace(/\/$/, ""),
-    supabaseAnonKey: els.supabaseAnonInput.value.trim()
-  };
+function updateAccountDetails() {
+  if (!state.session) {
+    els.accountDetails.textContent = "Connecte-toi pour gérer ton compte.";
+    els.settingsLogoutButton.hidden = true;
+    return;
+  }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config));
-  els.settingsMessage.textContent = "Réglages enregistrés.";
-  connectSupabase();
+  const metadata = state.session.user.user_metadata || {};
+  const displayName = metadata.username || state.session.user.email;
+  els.accountDetails.textContent = `Connecté en tant que ${displayName}.`;
+  els.settingsLogoutButton.hidden = false;
 }
 
 async function searchTheTvdb() {

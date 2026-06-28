@@ -30,13 +30,19 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
 button {
   border: 0;
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .app-shell {
@@ -140,7 +146,7 @@ label {
 
 input {
   width: 100%;
-  min-height: 46px;
+  height: 46px;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0 13px;
@@ -149,12 +155,25 @@ input {
   outline: none;
 }
 
-input:focus {
+select {
+  width: 100%;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 13px;
+  background: #0d0f11;
+  color: var(--text);
+  outline: none;
+}
+
+input:focus,
+select:focus {
   border-color: rgba(110, 231, 183, 0.75);
   box-shadow: 0 0 0 3px rgba(110, 231, 183, 0.12);
 }
 
 .primary-button,
+.secondary-button,
 .filter,
 .segment,
 .text-button,
@@ -169,6 +188,43 @@ input:focus {
   background: var(--accent);
   color: #06140f;
   font-weight: 850;
+}
+
+.secondary-button {
+  background: var(--panel-soft);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #0d0f11;
+}
+
+.auth-tab {
+  min-height: 38px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.auth-tab.active {
+  background: var(--panel-soft);
+  color: var(--text);
+}
+
+.danger-button {
+  color: var(--danger);
+}
+
+.auth-panel form .primary-button {
+  margin-top: 10px;
 }
 
 .icon-button {

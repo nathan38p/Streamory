@@ -14,10 +14,10 @@ Ouvre ensuite `http://localhost:5173`.
 
 1. Crée un projet Supabase.
 2. Exécute `supabase/schema.sql` dans le SQL editor.
-3. Active l'auth par email magic link.
-4. Dans l'app, ouvre les réglages et colle l'URL Supabase + la clé anon.
+3. Active l'auth par email et mot de passe.
+4. Copie `config.example.js` vers `config.js` et remplis l'URL Supabase + la clé publishable.
 
-Tu peux aussi copier `config.example.js` vers `config.js` et remplir les valeurs.
+Les réglages dans l'app servent au compte utilisateur, pas à la configuration Supabase.
 
 ## TheTVDB
 

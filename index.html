@@ -9,30 +9,69 @@
     <meta name="apple-mobile-web-app-title" content="Streamory">
     <title>Streamory</title>
     <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Streamory</p>
-          <h1>Films et séries</h1>
+          <h1>Streamory</h1>
         </div>
         <button class="icon-button" id="settingsButton" type="button" aria-label="Réglages">⚙</button>
       </header>
 
       <main>
         <section class="auth-panel" id="authPanel">
-          <h2>Connexion</h2>
-          <p>Connecte-toi avec Supabase pour synchroniser ta watchlist.</p>
+          <div class="auth-tabs" role="tablist" aria-label="Authentification">
+            <button class="auth-tab active" id="showLoginButton" type="button">Connexion</button>
+            <button class="auth-tab" id="showSignupButton" type="button">Inscription</button>
+          </div>
+
           <form id="loginForm" class="stack">
             <label>
               Email
-              <input id="emailInput" type="email" autocomplete="email" placeholder="toi@email.com" required>
+              <input id="loginEmailInput" type="email" autocomplete="email" required>
             </label>
-            <button class="primary-button" type="submit">Recevoir le lien magique</button>
+            <label>
+              Mot de passe
+              <input id="loginPasswordInput" type="password" autocomplete="current-password" minlength="6" required>
+            </label>
+            <button class="primary-button" id="loginButton" type="submit">Se connecter</button>
+            <p class="message" id="loginMessage"></p>
           </form>
-          <p class="message" id="authMessage"></p>
+
+          <form id="signupForm" class="stack" hidden>
+            <label>
+              Nom d'utilisateur
+              <input id="usernameInput" type="text" autocomplete="username" minlength="3" maxlength="28" required>
+            </label>
+            <label>
+              Email
+              <input id="signupEmailInput" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              Mot de passe
+              <input id="signupPasswordInput" type="password" autocomplete="new-password" minlength="6" required>
+            </label>
+            <label>
+              Confirmer le mot de passe
+              <input id="confirmPasswordInput" type="password" autocomplete="new-password" minlength="6" required>
+            </label>
+            <label>
+              Date de naissance
+              <input id="birthDateInput" type="date" required>
+            </label>
+            <label>
+              Pays
+              <select id="countryInput" required>
+                <option value="">Choisir un pays</option>
+              </select>
+            </label>
+            <button class="primary-button" id="signupButton" type="submit">Créer mon compte</button>
+            <p class="message" id="signupMessage"></p>
+          </form>
         </section>
 
         <section class="controls" id="appControls" hidden>
@@ -60,7 +99,6 @@
         <section class="library" id="libraryPanel" hidden>
           <div class="section-title">
             <h2>Ma liste</h2>
-            <button class="text-button" id="logoutButton" type="button">Déconnexion</button>
           </div>
           <div class="filters" aria-label="Filtres">
             <button class="filter active" type="button" data-status="all">Tout</button>
@@ -83,16 +121,8 @@
           <h2>Réglages</h2>
           <button class="icon-button" value="close" aria-label="Fermer">×</button>
         </div>
-        <label>
-          URL Supabase
-          <input id="supabaseUrlInput" type="url" placeholder="https://xxxxx.supabase.co">
-        </label>
-        <label>
-          Clé anon Supabase
-          <input id="supabaseAnonInput" type="password" placeholder="eyJ...">
-        </label>
-        <p class="hint">Ces valeurs restent dans le stockage local de l’iPhone. La clé TheTVDB doit rester côté Supabase Edge Function.</p>
-        <button class="primary-button" id="saveSettingsButton" type="button">Enregistrer</button>
+        <p class="hint" id="accountDetails">Connecte-toi pour gérer ton compte.</p>
+        <button class="secondary-button danger-button" id="settingsLogoutButton" type="button">Se déconnecter</button>
         <p class="message" id="settingsMessage"></p>
       </form>
     </dialog>
@@ -112,7 +142,8 @@
       </article>
     </template>
 
-    <script src="config.js"></script>
-    <script type="module" src="app.js"></script>
+    <script src="config.js?v=11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>
