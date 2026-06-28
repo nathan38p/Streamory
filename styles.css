@@ -67,6 +67,12 @@ button:disabled {
   margin-bottom: 22px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .eyebrow,
 .media-kind,
 .hint,
@@ -239,6 +245,32 @@ select:focus {
   font-size: 1.05rem;
 }
 
+.notification-button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #101215;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  padding: 0 5px;
+  background: var(--danger);
+  color: #111316;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 18px;
+}
+
 .text-button {
   background: transparent;
   color: #ffffff;
@@ -331,12 +363,97 @@ select:focus {
   color: var(--danger);
 }
 
+.filter.danger {
+  color: var(--danger);
+}
+
 .empty-state {
   margin-top: 14px;
   padding: 22px 10px;
   text-align: center;
   border: 1px dashed var(--line);
   border-radius: 8px;
+}
+
+.profile-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  min-height: 80px;
+  padding: 0 8px;
+}
+
+.friend-count-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #d1d5db;
+  color: #111316;
+  font-weight: 700;
+}
+
+.friend-add-box {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.social-list {
+  display: grid;
+  gap: 10px;
+}
+
+.social-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.social-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.social-avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #1b1e24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.social-name {
+  margin: 0;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.social-meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.social-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .message:empty,
@@ -368,6 +485,18 @@ select:focus {
   font-size: 0.86rem;
 }
 
+.tvdb-attribution {
+  margin: 16px 4px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.tvdb-attribution a {
+  color: var(--text);
+  font-weight: 700;
+}
+
 @media (max-width: 390px) {
   .search-row {
     display: grid;
@@ -379,5 +508,11 @@ select:focus {
 
   .poster {
     width: 64px;
+  }
+
+  .profile-summary,
+  .social-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

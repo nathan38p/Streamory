@@ -21,11 +21,13 @@ Les réglages dans l'app servent au compte utilisateur, pas à la configuration 
 
 ## TheTVDB
 
-La clé TheTVDB ne doit pas être dans le navigateur. Déploie l'Edge Function:
+La clé TheTVDB ne doit pas être dans le navigateur ni dans le repo. Ajoute-la comme secret Supabase, puis déploie l'Edge Function:
 
 ```bash
 supabase functions deploy tvdb-search
-supabase secrets set TVDB_API_KEY=your_key TVDB_PIN=your_pin
+supabase secrets set TVDB_API_KEY=your_key
 ```
 
-`TVDB_PIN` est optionnel selon ton compte TheTVDB.
+`TVDB_PIN` est optionnel selon ton compte TheTVDB. Si TheTVDB t'en fournit un, ajoute-le aussi avec `supabase secrets set TVDB_PIN=your_pin`.
+
+TheTVDB indique que le palier gratuit est disponible pour les projets sous 50k de revenus annuels, avec attribution obligatoire. L'app affiche donc une mention visible aux utilisateurs: `Metadata provided by TheTVDB.` avec un lien direct vers `https://thetvdb.com/`.

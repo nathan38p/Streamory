@@ -30,6 +30,7 @@ const state = {
   mediaType: "series",
   statusFilter: "all",
   library: [],
+  friendNotifications: [],
   config: loadConfig()
 };
 
@@ -66,6 +67,10 @@ const els = {
   accountDetails: document.querySelector("#accountDetails"),
   settingsLogoutButton: document.querySelector("#settingsLogoutButton"),
   settingsMessage: document.querySelector("#settingsMessage"),
+  notificationsButton: document.querySelector("#notificationsButton"),
+  notificationsBadge: document.querySelector("#notificationsBadge"),
+  notificationsDialog: document.querySelector("#notificationsDialog"),
+  notificationsList: document.querySelector("#notificationsList"),
   template: document.querySelector("#mediaCardTemplate")
 };
 
@@ -104,6 +109,10 @@ function bindEvents() {
   els.clearResultsButton?.addEventListener("click", clearResults);
   els.settingsLogoutButton?.addEventListener("click", logout);
   els.settingsButton?.addEventListener("click", () => els.settingsDialog?.showModal());
+  els.notificationsButton?.addEventListener("click", () => {
+    renderNotifications();
+    els.notificationsDialog?.showModal();
+  });
   els.birthDateInput?.addEventListener("input", formatBirthDateInput);
   els.birthDateInput?.addEventListener("keydown", handleBirthDateSlash);
 
@@ -151,11 +160,17 @@ async function connectSupabase() {
   state.client.auth.onAuthStateChange((_event, session) => {
     state.session = session;
     updateSessionUi();
-    if (session) loadLibrary();
+    if (session) {
+      loadLibrary();
+      loadFriendNotifications();
+    }
   });
 
   updateSessionUi();
-  if (state.session) loadLibrary();
+  if (state.session) {
+    loadLibrary();
+    loadFriendNotifications();
+  }
 }
 
 function updateSessionUi() {
@@ -178,6 +193,7 @@ function updateSessionUi() {
   if (els.appControls) els.appControls.hidden = false;
   if (els.libraryPanel) els.libraryPanel.hidden = false;
   if (els.settingsButton) els.settingsButton.hidden = false;
+  if (els.notificationsButton) els.notificationsButton.hidden = false;
   updateAccountDetails();
 }
 
@@ -191,6 +207,7 @@ function showSignedOut(message) {
   if (els.appControls) els.appControls.hidden = true;
   if (els.libraryPanel) els.libraryPanel.hidden = true;
   if (els.settingsButton) els.settingsButton.hidden = true;
+  if (els.notificationsButton) els.notificationsButton.hidden = true;
   if (els.loginMessage) els.loginMessage.textContent = message;
   if (els.signupMessage) els.signupMessage.textContent = "";
   updateAccountDetails();
@@ -322,13 +339,22 @@ async function handleSignup(event) {
   }
 
   try {
+    const username = els.usernameInput.value.trim();
+    const usernameAvailable = await isUsernameAvailable(state.client, username);
+
+    if (!usernameAvailable) {
+      els.signupMessage.textContent = "Ce nom d'utilisateur est déjà utilisé.";
+      return;
+    }
+
     const { data, error } = await state.client.auth.signUp({
       email: els.signupEmailInput.value.trim(),
       password: els.signupPasswordInput.value,
       options: {
         emailRedirectTo: getAuthRedirectUrl(),
         data: {
-          username: els.usernameInput.value.trim(),
+          display_name: username,
+          username,
           birth_date: birthDate,
           country: els.countryInput.value,
           country_label: els.countryInput.selectedOptions[0]?.textContent || ""
@@ -376,11 +402,38 @@ function setAuthLoading(mode, isLoading, message = "") {
 
 function formatAuthError(error) {
   const message = error.message || "";
-  if (message.toLowerCase().includes("email rate limit")) {
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("email rate limit")) {
     return "Supabase a bloqué temporairement les emails. Désactive la confirmation email pendant le dev, attends la fin du blocage, ou crée l'utilisateur directement dans Supabase.";
   }
 
+  if (
+    normalizedMessage.includes("already registered") ||
+    normalizedMessage.includes("already been registered") ||
+    (normalizedMessage.includes("email") && normalizedMessage.includes("exists")) ||
+    (normalizedMessage.includes("email") && normalizedMessage.includes("taken"))
+  ) {
+    return "Un compte existe déjà avec cet email.";
+  }
+
+  if (
+    normalizedMessage.includes("profiles_username") ||
+    (normalizedMessage.includes("duplicate key") && normalizedMessage.includes("username"))
+  ) {
+    return "Ce nom d'utilisateur est déjà utilisé.";
+  }
+
   return message;
+}
+
+async function isUsernameAvailable(client, username) {
+  const { data, error } = await client.rpc("is_streamory_username_available", {
+    candidate: username
+  });
+
+  if (error) return true;
+  return data === true;
 }
 
 async function logout() {
@@ -401,7 +454,7 @@ function updateAccountDetails() {
   }
 
   const metadata = state.session.user.user_metadata || {};
-  const displayName = metadata.username || state.session.user.email;
+  const displayName = metadata.display_name || metadata.username || state.session.user.email;
   els.accountDetails.textContent = `Connecté en tant que ${displayName}.`;
   els.settingsLogoutButton.hidden = false;
 }
@@ -464,6 +517,55 @@ async function loadLibrary() {
 
   state.library = data || [];
   renderLibrary();
+}
+
+async function loadFriendNotifications() {
+  if (!state.client || !state.session) return;
+
+  const { data, error } = await state.client.rpc("list_streamory_friend_notifications");
+  state.friendNotifications = error ? [] : data || [];
+  renderNotificationBadge();
+  renderNotifications();
+}
+
+function renderNotificationBadge() {
+  if (!els.notificationsBadge) return;
+
+  const count = state.friendNotifications.length;
+  els.notificationsBadge.hidden = count === 0;
+  els.notificationsBadge.textContent = String(count);
+}
+
+function renderNotifications() {
+  if (!els.notificationsList) return;
+
+  els.notificationsList.innerHTML = "";
+
+  if (!state.friendNotifications.length) {
+    els.notificationsList.append(emptySocialMessage("Aucune notification."));
+    return;
+  }
+
+  state.friendNotifications.forEach((notification) => {
+    els.notificationsList.append(createSocialItem({
+      username: notification.username,
+      country: notification.country,
+      meta: "Demande d'ami",
+      actions: [
+        { label: "Accepter", onClick: () => answerFriendRequest(notification.request_id, true) },
+        { label: "Refuser", danger: true, onClick: () => answerFriendRequest(notification.request_id, false) }
+      ]
+    }));
+  });
+}
+
+async function answerFriendRequest(requestId, accept) {
+  const functionName = accept
+    ? "accept_streamory_friend_request"
+    : "reject_streamory_friend_request";
+
+  await state.client.rpc(functionName, { request_id: requestId });
+  await loadFriendNotifications();
 }
 
 async function upsertMedia(item, status) {
@@ -572,6 +674,57 @@ function actionButton(label, onClick) {
   button.textContent = label;
   button.addEventListener("click", onClick);
   return button;
+}
+
+function createSocialItem({ username, country, meta = "", actions = [] }) {
+  const item = document.createElement("div");
+  item.className = "social-item";
+
+  const user = document.createElement("div");
+  user.className = "social-user";
+
+  const avatar = document.createElement("div");
+  avatar.className = "social-avatar";
+  avatar.textContent = "👤";
+
+  const text = document.createElement("div");
+  const name = document.createElement("p");
+  name.className = "social-name";
+  name.textContent = username || "Utilisateur";
+
+  const details = document.createElement("p");
+  details.className = "social-meta";
+  details.textContent = [country ? regionToFlag(country) : "", meta].filter(Boolean).join(" · ");
+
+  text.append(name, details);
+  user.append(avatar, text);
+  item.append(user);
+
+  if (actions.length) {
+    const actionList = document.createElement("div");
+    actionList.className = "social-actions";
+
+    actions.forEach((action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = action.danger ? "filter danger" : "filter";
+      button.textContent = action.label;
+      button.disabled = action.disabled === true;
+      button.addEventListener("click", action.onClick);
+      actionList.append(button);
+    });
+
+    item.append(actionList);
+  }
+
+  return item;
+}
+
+function emptySocialMessage(message) {
+  const empty = document.createElement("p");
+  empty.className = "message";
+  empty.textContent = message;
+  return empty;
 }
 
 function setActive(selector, activeButton) {

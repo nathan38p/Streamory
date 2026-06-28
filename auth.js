@@ -63,6 +63,7 @@ function bindAuthEvents() {
   authEls.showSignupButton?.addEventListener("click", () => setAuthMode("signup"));
   authEls.loginForm?.addEventListener("submit", handleLogin);
   authEls.signupForm?.addEventListener("submit", handleSignup);
+  authEls.usernameInput?.addEventListener("input", normalizeUsernameInput);
   authEls.birthDateInput?.addEventListener("input", formatBirthDateInput);
   authEls.birthDateInput?.addEventListener("keydown", handleBirthDateSlash);
 }
@@ -116,9 +117,16 @@ async function handleSignup(event) {
   const email = authEls.signupEmailInput.value.trim();
   const password = authEls.signupPasswordInput.value;
   const confirmPassword = authEls.confirmPasswordInput.value;
-  const username = authEls.usernameInput.value.trim();
+  const username = normalizeUsername(authEls.usernameInput.value);
   const birthDate = authEls.birthDateInput.value.trim();
   const country = authEls.countryInput.value;
+
+  authEls.usernameInput.value = username;
+
+  if (!isValidUsername(username)) {
+    setSignupMessage("Le display name doit contenir 3 à 28 caractères: lettres minuscules et chiffres seulement.");
+    return;
+  }
 
   if (password !== confirmPassword) {
     setSignupMessage("Les mots de passe ne correspondent pas.");
@@ -128,11 +136,19 @@ async function handleSignup(event) {
   setAuthLoading("signup", true);
 
   try {
+    const usernameAvailable = await isUsernameAvailable(authClient, username);
+
+    if (!usernameAvailable) {
+      setSignupMessage("Ce nom d'utilisateur est déjà utilisé.");
+      return;
+    }
+
     const { error } = await authClient.auth.signUp({
       email,
       password,
       options: {
         data: {
+          display_name: username,
           username,
           birth_date: birthDate,
           country
@@ -213,15 +229,41 @@ function handleBirthDateSlash(event) {
   formatBirthDateInput();
 }
 
+function normalizeUsernameInput(event) {
+  event.target.value = normalizeUsername(event.target.value);
+}
+
+function normalizeUsername(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 28);
+}
+
+function isValidUsername(username) {
+  return /^[a-z0-9]{3,28}$/.test(username);
+}
+
 function formatAuthError(error) {
   const message = error?.message || "Erreur inconnue.";
+  const normalizedMessage = message.toLowerCase();
 
   if (message.includes("Invalid login credentials")) {
     return "Email ou mot de passe incorrect.";
   }
 
-  if (message.includes("User already registered")) {
+  if (
+    message.includes("User already registered") ||
+    normalizedMessage.includes("already registered") ||
+    normalizedMessage.includes("already been registered") ||
+    (normalizedMessage.includes("email") && normalizedMessage.includes("exists")) ||
+    (normalizedMessage.includes("email") && normalizedMessage.includes("taken"))
+  ) {
     return "Un compte existe déjà avec cet email.";
+  }
+
+  if (
+    normalizedMessage.includes("profiles_username") ||
+    (normalizedMessage.includes("duplicate key") && normalizedMessage.includes("username"))
+  ) {
+    return "Ce nom d'utilisateur est déjà utilisé.";
   }
 
   if (message.includes("Password should be")) {
@@ -229,6 +271,15 @@ function formatAuthError(error) {
   }
 
   return message;
+}
+
+async function isUsernameAvailable(client, username) {
+  const { data, error } = await client.rpc("is_streamory_username_available", {
+    candidate: username
+  });
+
+  if (error) return true;
+  return data === true;
 }
 
 function preventPageZoom() {

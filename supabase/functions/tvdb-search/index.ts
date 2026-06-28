@@ -39,10 +39,13 @@ Deno.serve(async (request) => {
 });
 
 async function getTvdbToken(apiKey: string, pin?: string | null) {
+  const credentials: { apikey: string; pin?: string } = { apikey: apiKey };
+  if (pin) credentials.pin = pin;
+
   const response = await fetch(`${TVDB_API_BASE}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ apikey: apiKey, pin })
+    body: JSON.stringify(credentials)
   });
 
   const payload = await response.json();
