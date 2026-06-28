@@ -145,6 +145,24 @@
 
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      window.addEventListener("DOMContentLoaded", async () => {
+        if (!window.CONFIG?.SUPABASE_URL || !window.CONFIG?.SUPABASE_ANON_KEY || !window.supabase) {
+          return;
+        }
+
+        const client = window.supabase.createClient(
+          window.CONFIG.SUPABASE_URL,
+          window.CONFIG.SUPABASE_ANON_KEY
+        );
+
+        const { data } = await client.auth.getSession();
+
+        if (data.session) {
+          window.location.replace("app.html");
+        }
+      });
+    </script>
     <script src="app.js"></script>
   </body>
 </html>
