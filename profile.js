@@ -263,13 +263,13 @@ async function loadProfileLibrary() {
   const [seriesResult, moviesResult] = await Promise.all([
     profileClient
       .from("user_items")
-      .select("id,title,image_url,media_type,status,updated_at")
+      .select("id,title,tvdb_id,image_url,media_type,status,updated_at")
       .eq("media_type", "series")
       .order("updated_at", { ascending: false })
       .limit(20),
     profileClient
       .from("user_items")
-      .select("id,title,image_url,media_type,status,updated_at")
+      .select("id,title,tvdb_id,image_url,media_type,status,updated_at")
       .eq("media_type", "movie")
       .order("updated_at", { ascending: false })
       .limit(20)
@@ -277,7 +277,35 @@ async function loadProfileLibrary() {
 
   profileSeries = seriesResult.error ? [] : seriesResult.data || [];
   profileMovies = moviesResult.error ? [] : moviesResult.data || [];
+
+  await backfillMissingProfilePosters();
   renderProfileRails();
+}
+
+async function backfillMissingProfilePosters() {
+  if (!profileClient) return;
+
+  const missingItems = [...profileSeries, ...profileMovies]
+    .filter((item) => item.tvdb_id && !item.image_url)
+    .slice(0, 10);
+
+  if (!missingItems.length) return;
+
+  for (const item of missingItems) {
+    try {
+      const details = await fetchTheTvdbDetails(item.tvdb_id, item.media_type);
+      if (!details.image_url) continue;
+
+      item.image_url = details.image_url;
+
+      await profileClient
+        .from("user_items")
+        .update({ image_url: details.image_url })
+        .eq("id", item.id);
+    } catch (_error) {
+      // Garde le placeholder si TheTVDB ne renvoie pas d'affiche.
+    }
+  }
 }
 
 function renderProfileRails() {
@@ -313,6 +341,9 @@ function createProfilePoster(item) {
   image.src = item.image_url || posterPlaceholder();
   image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
   image.loading = "lazy";
+  image.addEventListener("error", () => {
+    image.src = posterPlaceholder();
+  }, { once: true });
 
   const caption = document.createElement("figcaption");
   caption.textContent = item.title || "Sans titre";
@@ -536,9 +567,12 @@ async function importTvtimeData() {
       userId: profileSession.user.id
     });
 
-    setTvtimeImportMessage(`Import de ${importData.items.length} titres et ${importData.episodeWatches.length} épisodes vus...`);
+    setTvtimeImportMessage(`Récupération des affiches TheTVDB pour ${importData.items.length} titres...`);
+    const enrichedItems = await enrichTvtimeItemsWithTheTvdb(importData.items);
 
-    await upsertInChunks("user_items", importData.items, "user_id,tvdb_id,media_type");
+    setTvtimeImportMessage(`Import de ${enrichedItems.length} titres et ${importData.episodeWatches.length} épisodes vus...`);
+
+    await upsertInChunks("user_items", enrichedItems, "user_id,tvdb_id,media_type");
     await upsertInChunks("user_episode_watches", importData.episodeWatches, "user_id,series_tvdb_id,episode_tvdb_id");
     await loadProfileLibrary();
 
@@ -550,6 +584,91 @@ async function importTvtimeData() {
   }
 }
 
+async function enrichTvtimeItemsWithTheTvdb(items) {
+  const enrichedItems = [];
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    setTvtimeImportMessage(`Récupération des affiches TheTVDB ${index + 1}/${items.length}...`);
+
+    try {
+      const details = await fetchTheTvdbDetails(item.tvdb_id, item.media_type);
+      enrichedItems.push({
+        ...item,
+        title: details.title || item.title,
+        year: details.year || item.year || null,
+        overview: details.overview || item.overview || null,
+        image_url: details.image_url || item.image_url || null
+      });
+    } catch (_error) {
+      enrichedItems.push(item);
+    }
+  }
+
+  return enrichedItems;
+}
+
+async function fetchTheTvdbDetails(tvdbId, mediaType) {
+  if (!tvdbId) return {};
+
+  const endpoint = mediaType === "movie"
+    ? `movies/${encodeURIComponent(tvdbId)}/extended`
+    : `series/${encodeURIComponent(tvdbId)}/extended`;
+
+  const { data, error } = await profileClient.functions.invoke("tvdb-search", {
+    body: {
+      endpoint
+    }
+  });
+
+  if (error) throw error;
+
+  const payload = data?.data || data;
+  const primaryArtwork = findPrimaryTheTvdbArtwork(payload);
+
+  return {
+    title: payload?.name || payload?.title || payload?.seriesName || "",
+    year: extractTheTvdbYear(payload),
+    overview: payload?.overview || payload?.description || "",
+    image_url: normalizeTheTvdbImageUrl(
+      payload?.image ||
+      payload?.image_url ||
+      payload?.poster ||
+      payload?.poster_url ||
+      primaryArtwork?.image ||
+      primaryArtwork?.thumbnail ||
+      primaryArtwork?.url
+    )  };
+}
+
+function extractTheTvdbYear(payload) {
+  const rawDate = payload?.firstAired || payload?.released || payload?.releaseDate || payload?.year;
+  if (!rawDate) return null;
+
+  const match = String(rawDate).match(/\d{4}/);
+  return match ? match[0] : null;
+}
+
+function findPrimaryTheTvdbArtwork(payload) {
+  const artworks = Array.isArray(payload?.artworks) ? payload.artworks : [];
+  if (artworks.length === 0) return null;
+
+  return artworks.find((artwork) => {
+    const type = String(artwork?.type || artwork?.typeName || artwork?.artworkType || "").toLowerCase();
+    return type.includes("poster") || type.includes("cover");
+  }) || artworks[0];
+}
+
+function normalizeTheTvdbImageUrl(value) {
+  if (!value) return null;
+  const url = String(value);
+
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/")) return `https://artworks.thetvdb.com${url}`;
+
+  return `https://artworks.thetvdb.com/banners/${url}`;
+}
+
 function buildTvtimeImportData({ movies, series, userId }) {
   const movieItems = movies
     .filter((movie) => getTvdbId(movie))
@@ -559,6 +678,8 @@ function buildTvtimeImportData({ movies, series, userId }) {
       media_type: "movie",
       title: String(movie.title || "Film sans titre"),
       year: movie.year ? String(movie.year) : null,
+      overview: null,
+      image_url: null,
       status: movie.is_watched ? "watched" : "watchlist",
       updated_at: normalizeTvtimeDate(movie.watched_at || movie.created_at) || new Date().toISOString()
     }));
@@ -578,6 +699,9 @@ function buildTvtimeImportData({ movies, series, userId }) {
         tvdb_id: seriesTvdbId,
         media_type: "series",
         title: seriesTitle,
+        year: null,
+        overview: null,
+        image_url: null,
         status: getSeriesImportStatus(episodeStats),
         updated_at: episodeStats.lastWatchedAt || normalizeTvtimeDate(show.created_at) || new Date().toISOString()
       });

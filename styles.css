@@ -49,6 +49,10 @@ button:disabled {
   padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);
 }
 
+.app-shell.wide-shell {
+  width: min(100%, 980px);
+}
+
 .topbar,
 .section-title,
 .search-row,
@@ -617,6 +621,26 @@ select:focus {
   font-weight: 700;
 }
 
+/* --- Series grid styles --- */
+.series-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.series-grid .profile-poster-item {
+  width: 100%;
+  min-width: 0;
+}
+
+.series-grid .profile-poster-item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+}
+
 @media (max-width: 390px) {
   .search-row {
     display: grid;
@@ -644,5 +668,9 @@ select:focus {
     min-height: auto;
     justify-content: center;
     transform: rotate(90deg);
+  }
+
+  .series-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

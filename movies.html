@@ -1,0 +1,110 @@
+
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Films — Streamory</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <main class="app-shell wide-shell">
+    <section class="library">
+      <div class="section-title">
+        <h1>Films</h1>
+        <button class="icon-button" type="button" aria-label="Retour au profil" onclick="window.location.href='profile.html'">←</button>
+      </div>
+
+      <p class="muted" id="moviesStatus">Chargement des films…</p>
+      <div class="series-grid" id="moviesList"></div>
+    </section>
+  </main>
+
+  <script>
+    const moviesList = document.getElementById("moviesList");
+    const moviesStatus = document.getElementById("moviesStatus");
+
+    function posterPlaceholder() {
+      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+    }
+
+    function createMovieCard(item) {
+      const figure = document.createElement("figure");
+      figure.className = "profile-poster-item";
+
+      const image = document.createElement("img");
+      image.src = item.image_url || posterPlaceholder();
+      image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
+      image.loading = "lazy";
+      image.addEventListener("error", () => {
+        image.src = posterPlaceholder();
+      }, { once: true });
+
+      figure.append(image);
+      return figure;
+    }
+
+    function getSupabaseClient() {
+      if (window.streamoryClient) return window.streamoryClient;
+      if (window.supabaseClient) return window.supabaseClient;
+      if (window.profileClient) return window.profileClient;
+
+      const url = window.CONFIG?.SUPABASE_URL;
+      const key = window.CONFIG?.SUPABASE_ANON_KEY;
+
+      if (!window.supabase || !url || !key) return null;
+
+      const client = window.supabase.createClient(url, key);
+      window.streamoryClient = client;
+      window.supabaseClient = client;
+      return client;
+    }
+
+    async function loadMovies() {
+      const client = getSupabaseClient();
+
+      if (!client) {
+        moviesStatus.textContent = "Connexion Supabase introuvable.";
+        return;
+      }
+
+      const { data: authData, error: authError } = await client.auth.getUser();
+      const user = authData?.user;
+
+      if (authError || !user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      const { data, error } = await client
+        .from("user_items")
+        .select("*")
+        .eq("media_type", "movie")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        moviesStatus.textContent = "Impossible de charger les films.";
+        return;
+      }
+
+      const movies = data || [];
+      moviesList.innerHTML = "";
+
+      if (!movies.length) {
+        moviesStatus.textContent = "Aucun film ajouté.";
+        return;
+      }
+
+      moviesStatus.textContent = "";
+      movies.forEach((item) => moviesList.appendChild(createMovieCard(item)));
+    }
+
+    loadMovies();
+  </script>
+</body>
+</html>

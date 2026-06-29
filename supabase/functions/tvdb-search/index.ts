@@ -9,18 +9,27 @@ Deno.serve(async (request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const body = await readJsonBody(request);
+
   try {
     const apiKey = Deno.env.get("TVDB_API_KEY");
     const pin = Deno.env.get("TVDB_PIN");
     if (!apiKey) throw new Error("TVDB_API_KEY is missing");
 
     const url = new URL(request.url);
-    const query = url.searchParams.get("q")?.trim();
-    const type = url.searchParams.get("type")?.trim();
-    const language = url.searchParams.get("language")?.trim();
-    if (!query) throw new Error("Missing q parameter");
+    const query = (body.q || url.searchParams.get("q") || "").trim();
+    const type = (body.type || url.searchParams.get("type") || "").trim();
+    const language = (body.language || url.searchParams.get("language") || "").trim();
+    const endpoint = (body.endpoint || url.searchParams.get("endpoint") || "").trim();
 
     const token = await getTvdbToken(apiKey, pin);
+
+    if (endpoint) {
+      return json(await fetchTvdbEndpoint({ token, endpoint }));
+    }
+
+    if (!query) throw new Error("Missing q parameter");
+
     const languages = uniqueLanguages([language, "eng", ""]);
     const payloads = [];
 
@@ -39,6 +48,44 @@ Deno.serve(async (request) => {
     return json({ error: getErrorMessage(error) }, 400);
   }
 });
+
+async function readJsonBody(request: Request) {
+  if (request.method === "GET") return {} as Record<string, string>;
+
+  try {
+    const body = await request.json();
+    if (!body || typeof body !== "object") return {} as Record<string, string>;
+    return body as Record<string, string>;
+  } catch (_error) {
+    return {} as Record<string, string>;
+  }
+}
+
+async function fetchTvdbEndpoint({
+  token,
+  endpoint
+}: {
+  token: string;
+  endpoint: string;
+}) {
+  const cleanEndpoint = endpoint.replace(/^\/+/, "");
+  if (!/^(series|movies)\/\d+(\/extended)?$/.test(cleanEndpoint)) {
+    throw new Error("Unsupported TheTVDB endpoint");
+  }
+  const tvdbResponse = await fetch(`${TVDB_API_BASE}/${cleanEndpoint}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json"
+    }
+  });
+
+  const payload = await tvdbResponse.json();
+  if (!tvdbResponse.ok) {
+    throw new Error(payload.message || "TheTVDB endpoint failed");
+  }
+
+  return payload;
+}
 
 async function searchTvdb({
   token,
