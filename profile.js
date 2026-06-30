@@ -29,6 +29,7 @@ const profileEls = {
   tvtimeSeriesFile: document.getElementById("tvtimeSeriesFile"),
   importTvtimeButton: document.getElementById("importTvtimeButton"),
   tvtimeImportMessage: document.getElementById("tvtimeImportMessage"),
+  tvtimeImportContainer: null,
   saveProfileButton: document.getElementById("saveProfileButton"),
   logoutButton: document.getElementById("logoutButton")
 };
@@ -49,6 +50,7 @@ function initProfilePage() {
   preventPageZoom();
   populateProfileCountries();
   bindProfileEvents();
+  resolveTvtimeImportContainer();
   connectProfileSupabase();
 }
 
@@ -103,6 +105,7 @@ async function connectProfileSupabase() {
 function bindProfileEvents() {
   profileEls.settingsButton?.addEventListener("click", () => {
     fillSettingsForm();
+    updateTvtimeImportVisibility();
     profileEls.settingsDialog?.showModal();
   });
 
@@ -135,6 +138,7 @@ function openSettingsFromUrl() {
   if (profileEls.settingsDialog?.open) return;
 
   fillSettingsForm();
+  updateTvtimeImportVisibility();
   profileEls.settingsDialog?.showModal();
 }
 
@@ -278,6 +282,8 @@ async function loadProfileLibrary() {
   profileSeries = seriesResult.error ? [] : seriesResult.data || [];
   profileMovies = moviesResult.error ? [] : moviesResult.data || [];
 
+  await markTvtimeImportDoneIfExistingData();
+  updateTvtimeImportVisibility();
   await backfillMissingProfilePosters();
   renderProfileRails();
 }
@@ -575,6 +581,8 @@ async function importTvtimeData() {
     await upsertInChunks("user_items", enrichedItems, "user_id,tvdb_id,media_type");
     await upsertInChunks("user_episode_watches", importData.episodeWatches, "user_id,series_tvdb_id,episode_tvdb_id");
     await loadProfileLibrary();
+    await markTvtimeImportDone();
+    updateTvtimeImportVisibility();
 
     setTvtimeImportMessage(`Import terminé: ${importData.seriesCount} séries, ${importData.movieCount} films, ${importData.episodeWatches.length} épisodes vus.`);
   } catch (error) {
@@ -582,6 +590,75 @@ async function importTvtimeData() {
   } finally {
     setTvtimeImportLoading(false);
   }
+}
+
+function resolveTvtimeImportContainer() {
+  const anchor = profileEls.importTvtimeButton || profileEls.tvtimeMoviesFile || profileEls.tvtimeSeriesFile;
+  if (!anchor) return;
+
+  profileEls.tvtimeImportContainer = anchor.closest(".settings-section, .form-section, .dialog-section, fieldset, section, article") || anchor.parentElement;
+}
+
+function getTvtimeImportStorageKey() {
+  const userId = profileSession?.user?.id || "anonymous";
+  return `streamory_tvtime_import_done_${userId}`;
+}
+
+function isTvtimeImportDone() {
+  const metadata = profileSession?.user?.user_metadata || {};
+  return metadata.tvtime_import_done === true || localStorage.getItem(getTvtimeImportStorageKey()) === "1";
+}
+
+function updateTvtimeImportVisibility() {
+  if (!profileEls.tvtimeImportContainer) resolveTvtimeImportContainer();
+  if (!profileEls.tvtimeImportContainer) return;
+
+  const shouldHide = isTvtimeImportDone();
+  profileEls.tvtimeImportContainer.hidden = shouldHide;
+}
+
+async function markTvtimeImportDone() {
+  if (!profileClient || !profileSession?.user) return;
+
+  localStorage.setItem(getTvtimeImportStorageKey(), "1");
+
+  const metadata = profileSession.user.user_metadata || {};
+  if (metadata.tvtime_import_done === true) return;
+
+  const { data, error } = await profileClient.auth.updateUser({
+    data: {
+      ...metadata,
+      tvtime_import_done: true,
+      tvtime_imported_at: new Date().toISOString()
+    }
+  });
+
+  if (!error && data.user) {
+    profileSession = {
+      ...profileSession,
+      user: data.user
+    };
+  }
+}
+
+async function markTvtimeImportDoneIfExistingData() {
+  if (isTvtimeImportDone()) return;
+  if (!profileClient || !profileSession?.user) return;
+
+  const hasImportedEpisodeWatches = await hasExistingTvtimeEpisodeWatches();
+  if (!hasImportedEpisodeWatches) return;
+
+  await markTvtimeImportDone();
+}
+
+async function hasExistingTvtimeEpisodeWatches() {
+  const { count, error } = await profileClient
+    .from("user_episode_watches")
+    .select("id", { count: "exact", head: true })
+    .limit(1);
+
+  if (error) return false;
+  return Number(count || 0) > 0;
 }
 
 async function enrichTvtimeItemsWithTheTvdb(items) {
