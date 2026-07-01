@@ -69,7 +69,8 @@ async function fetchTvdbEndpoint({
   endpoint: string;
 }) {
   const cleanEndpoint = endpoint.replace(/^\/+/, "");
-  if (!/^(series|movies)\/\d+(\/extended)?$/.test(cleanEndpoint)) {
+  if (!/^(series|movies)\/\d+(\/extended)?(\?meta=translations)?$/.test(cleanEndpoint) &&
+      !/^series\/\d+\/episodes\/[a-z-]+(\?page=\d+)?$/.test(cleanEndpoint)) {
     throw new Error("Unsupported TheTVDB endpoint");
   }
   const tvdbResponse = await fetch(`${TVDB_API_BASE}/${cleanEndpoint}`, {

@@ -8,12 +8,16 @@ create table if not exists public.user_items (
   year text,
   overview text,
   status text not null default 'watchlist' check (status in ('watchlist', 'watching', 'watched')),
+  watch_count integer not null default 0,
   rating smallint check (rating between 0 and 10),
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, tvdb_id, media_type)
 );
+
+alter table public.user_items
+  add column if not exists watch_count integer not null default 0;
 
 alter table public.user_items enable row level security;
 

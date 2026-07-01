@@ -343,6 +343,10 @@ function createProfilePoster(item) {
   const figure = document.createElement("figure");
   figure.className = "profile-poster-item";
 
+  const link = document.createElement("a");
+  link.href = getMediaDetailUrl(item);
+  link.setAttribute("aria-label", `Voir ${item.title || "ce titre"}`);
+
   const image = document.createElement("img");
   image.src = item.image_url || posterPlaceholder();
   image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
@@ -354,8 +358,14 @@ function createProfilePoster(item) {
   const caption = document.createElement("figcaption");
   caption.textContent = item.title || "Sans titre";
 
-  figure.append(image, caption);
+  link.append(image, caption);
+  figure.append(link);
   return figure;
+}
+
+function getMediaDetailUrl(item) {
+  const page = item.media_type === "movie" ? "film.html" : "tvshow.html";
+  return `${page}?id=${encodeURIComponent(normalizeTvdbId(item.tvdb_id))}`;
 }
 
 async function searchFriends() {
@@ -687,10 +697,11 @@ async function enrichTvtimeItemsWithTheTvdb(items) {
 
 async function fetchTheTvdbDetails(tvdbId, mediaType) {
   if (!tvdbId) return {};
+  const normalizedTvdbId = normalizeTvdbId(tvdbId);
 
   const endpoint = mediaType === "movie"
-    ? `movies/${encodeURIComponent(tvdbId)}/extended`
-    : `series/${encodeURIComponent(tvdbId)}/extended`;
+    ? `movies/${encodeURIComponent(normalizedTvdbId)}/extended`
+    : `series/${encodeURIComponent(normalizedTvdbId)}/extended`;
 
   const { data, error } = await profileClient.functions.invoke("tvdb-search", {
     body: {
@@ -1068,6 +1079,12 @@ function formatProfileError(error) {
   }
 
   return message;
+}
+
+function normalizeTvdbId(value) {
+  const text = String(value || "");
+  const match = text.match(/\d+/);
+  return match ? match[0] : text;
 }
 
 function preventPageZoom() {

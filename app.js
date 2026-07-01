@@ -921,7 +921,7 @@ function normalizeTvdbItem(item) {
   const image = item.image_url || item.thumbnail || item.poster || item.image;
   const language = getCurrentTvdbLanguage();
   return {
-    tvdbId: item.tvdb_id || item.id,
+    tvdbId: normalizeTvdbId(item.tvdb_id || item.id),
     mediaType: normalizeMediaType(item.type),
     title: pickLocalizedValue(item, ["name", "title"], language) || "Sans titre",
     imageUrl: image?.startsWith("http") ? image : image ? `${POSTER_BASE}${image}` : "",
@@ -939,6 +939,12 @@ function normalizeMediaType(type) {
   const normalized = String(type || "").toLowerCase();
   if (normalized === "movie" || normalized === "series") return normalized;
   return "";
+}
+
+function normalizeTvdbId(value) {
+  const text = String(value || "");
+  const match = text.match(/\d+/);
+  return match ? match[0] : text;
 }
 
 function getCurrentTvdbLanguage() {

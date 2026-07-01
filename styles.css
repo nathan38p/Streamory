@@ -441,6 +441,10 @@ select:focus {
   scroll-snap-align: start;
 }
 
+.profile-poster-item a {
+  display: block;
+}
+
 .profile-poster-item img {
   display: block;
   width: 100%;
@@ -607,18 +611,6 @@ select:focus {
 .hint {
   margin-bottom: 0;
   font-size: 0.86rem;
-}
-
-.tvdb-attribution {
-  margin: 16px 4px 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-align: center;
-}
-
-.tvdb-attribution a {
-  color: var(--text);
-  font-weight: 700;
 }
 
 /* --- Series grid styles --- */

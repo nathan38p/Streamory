@@ -75,7 +75,12 @@
         image.src = posterPlaceholder();
       }, { once: true });
 
-      figure.append(image);
+      const link = document.createElement("a");
+      link.href = `tvshow.html?id=${encodeURIComponent(item.tvdb_id)}`;
+      link.setAttribute("aria-label", `Voir ${item.title || "cette série"}`);
+      link.append(image);
+
+      figure.append(link);
       return figure;
     }
 

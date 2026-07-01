@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Série — Streamory</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .detail-shell { width: min(100%, 980px); }
+    .detail-hero { display: grid; grid-template-columns: minmax(130px, 220px) 1fr; gap: 18px; align-items: start; }
+    .detail-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .detail-heading-row h2 { margin-right: auto; }
+    .detail-poster { width: 100%; aspect-ratio: 2 / 3; border-radius: 8px; background: var(--panel-soft); object-fit: cover; }
+    .detail-meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px; color: var(--muted); font-size: 0.9rem; }
+    .seasons { display: grid; gap: 12px; margin-top: 18px; }
+    .season-block { border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.03); overflow: hidden; }
+    .season-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; cursor: pointer; list-style: none; }
+    .season-header::-webkit-details-marker { display: none; }
+    .season-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .season-check { width: 22px; height: 22px; accent-color: #d7dce2; cursor: pointer; }
+    .season-heading h2 { margin: 0; }
+    .season-toggle { color: var(--muted); font-size: 0.9rem; font-weight: 900; transition: transform 0.16s ease; }
+    .season-block[open] .season-toggle { transform: rotate(90deg); }
+    .season-progress { color: var(--muted); font-size: 0.86rem; font-weight: 700; white-space: nowrap; }
+    .episode-list { display: grid; border-top: 1px solid var(--line); }
+    .episode-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border-top: 1px solid var(--line); cursor: pointer; }
+    .episode-row:first-child { border-top: 0; }
+    .episode-row input { position: absolute; opacity: 0; pointer-events: none; }
+    .episode-number { color: var(--muted); font-size: 0.84rem; font-weight: 800; }
+    .episode-title { margin: 0; font-weight: 800; }
+    .episode-date { margin: 3px 0 0; color: var(--muted); font-size: 0.86rem; }
+    .episode-state { align-self: center; min-width: 72px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: var(--panel-soft); color: var(--muted); font-size: 0.78rem; font-weight: 900; text-align: center; cursor: pointer; }
+    .episode-row.is-watched .episode-state { background: #22c55e; color: #07130b; border-color: #22c55e; }
+    .episode-state:disabled { cursor: default; opacity: 0.65; }
+    .episode-choice-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, 0.55); }
+    .episode-choice-box { width: min(100%, 340px); border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--panel); box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35); }
+    .episode-choice-box p { margin: 0 0 14px; color: var(--text); font-weight: 800; }
+    .episode-choice-actions { display: grid; gap: 10px; }
+    .episode-choice-actions button { border: 1px solid var(--line); border-radius: 999px; padding: 10px 12px; background: var(--panel-soft); color: var(--text); font-weight: 900; cursor: pointer; }
+    .episode-choice-actions button[data-action="unwatch"] { color: var(--muted); }
+    @media (max-width: 620px) {
+      .detail-hero { grid-template-columns: 110px 1fr; }
+      .episode-row { grid-template-columns: 48px 1fr auto; }
+      .episode-state { min-width: 58px; padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell detail-shell">
+    <header class="topbar">
+      <div>
+        <h1 id="siteTitle" style="cursor:pointer;" onclick="window.location.href='app.html'">Streamory</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button notification-button" id="notificationsButton" type="button" aria-label="Notifications" hidden>🔔<span id="notificationsBadge" class="notification-badge" hidden>0</span></button>
+        <button class="icon-button" id="profileButton" type="button" aria-label="Profil" style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#1a1d22;">👤</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="library">
+        <p class="message" id="seriesStatus">Chargement de la série...</p>
+
+        <div id="seriesContent" hidden>
+          <div class="detail-hero">
+            <img class="detail-poster" id="seriesPoster" alt="Affiche" />
+            <div>
+              <div class="detail-heading-row">
+                <div>
+                  <p class="eyebrow">Série</p>
+                  <h2 id="seriesHeading"></h2>
+                </div>
+                <button class="icon-button" type="button" aria-label="Retour" onclick="history.back()">←</button>
+              </div>
+              <div class="detail-meta" id="seriesMeta"></div>
+              <p class="media-overview" id="seriesOverview"></p>
+            </div>
+          </div>
+          <div class="seasons" id="seasonsList"></div>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="settings-dialog" id="notificationsDialog">
+      <form method="dialog" class="settings-content">
+        <div class="section-title">
+          <h2>Notifications</h2>
+          <button class="icon-button" value="close" aria-label="Fermer">×</button>
+        </div>
+        <div class="social-list" id="notificationsList"></div>
+      </form>
+    </dialog>
+  </div>
+
+  <script>
+    const POSTER_BASE = "https://artworks.thetvdb.com";
+    const SERIES_STATUS_LABELS = {
+      canceled: "Annulée",
+      cancelled: "Annulée",
+      continuing: "En cours",
+      ended: "Terminée",
+      hiatus: "En pause",
+      "in development": "En développement",
+      "in production": "En production",
+      pilot: "Pilote",
+      planned: "Prévue",
+      upcoming: "À venir"
+    };
+    const SERIES_GENRE_LABELS = {
+      action: "Action",
+      adventure: "Aventure",
+      animation: "Animation",
+      anime: "Anime",
+      children: "Jeunesse",
+      comedy: "Comédie",
+      crime: "Crime",
+      documentary: "Documentaire",
+      drama: "Drame",
+      family: "Famille",
+      fantasy: "Fantastique",
+      food: "Cuisine",
+      "game show": "Jeu télévisé",
+      history: "Histoire",
+      "home and garden": "Maison et jardin",
+      horror: "Horreur",
+      indie: "Indépendant",
+      "mini series": "Mini-série",
+      "mini-series": "Mini-série",
+      musical: "Comédie musicale",
+      mystery: "Mystère",
+      news: "Actualités",
+      reality: "Téléréalité",
+      romance: "Romance",
+      "science fiction": "Science-fiction",
+      "sci fi": "Science-fiction",
+      "sci-fi": "Science-fiction",
+      soap: "Soap opera",
+      "special interest": "Magazine",
+      sport: "Sport",
+      suspense: "Suspense",
+      "talk show": "Talk-show",
+      thriller: "Thriller",
+      travel: "Voyage",
+      war: "Guerre",
+      western: "Western"
+    };
+    const rawTvdbId = new URLSearchParams(window.location.search).get("id");
+    const tvdbId = normalizeTvdbId(rawTvdbId);
+    const els = {
+      status: document.getElementById("seriesStatus"),
+      content: document.getElementById("seriesContent"),
+      heading: document.getElementById("seriesHeading"),
+      poster: document.getElementById("seriesPoster"),
+      meta: document.getElementById("seriesMeta"),
+      overview: document.getElementById("seriesOverview"),
+      seasons: document.getElementById("seasonsList"),
+      profileButton: document.getElementById("profileButton"),
+      notificationsButton: document.getElementById("notificationsButton"),
+      notificationsBadge: document.getElementById("notificationsBadge"),
+      notificationsDialog: document.getElementById("notificationsDialog"),
+      notificationsList: document.getElementById("notificationsList")
+    };
+    let client;
+    let user;
+    let seriesDetails;
+let watchedEpisodeIds = new Set();
+let episodeRewatchCounts = new Map();
+    let episodes = [];
+    let notifications = [];
+    let openSeasonKeys = new Set();
+    let hasTouchedSeasonToggles = false;
+
+    function posterPlaceholder() {
+      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+    }
+
+    function getSupabaseClient() {
+      if (window.streamoryClient) return window.streamoryClient;
+      const url = window.CONFIG?.SUPABASE_URL;
+      const key = window.CONFIG?.SUPABASE_ANON_KEY;
+      if (!window.supabase || !url || !key) return null;
+      window.streamoryClient = window.supabase.createClient(url, key);
+      return window.streamoryClient;
+    }
+
+    async function init() {
+      if (!rawTvdbId || !tvdbId) {
+        els.status.textContent = "Aucun identifiant TVDB dans l'URL.";
+        return;
+      }
+
+      client = getSupabaseClient();
+      if (!client) {
+        els.status.textContent = "Connexion Supabase introuvable.";
+        return;
+      }
+
+      const { data: authData, error: authError } = await client.auth.getUser();
+      user = authData?.user;
+      if (authError || !user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      els.profileButton?.addEventListener("click", () => {
+        window.location.href = "profile.html";
+      });
+      els.notificationsButton?.addEventListener("click", () => {
+        renderNotifications();
+        els.notificationsDialog?.showModal();
+      });
+      els.seasons?.addEventListener("click", handleEpisodeListClick, true);
+      await loadFriendNotifications();
+
+      try {
+        const [details, watchedResult] = await Promise.all([
+          fetchTvdbEndpoint(`series/${encodeURIComponent(tvdbId)}/extended`),
+          client.from("user_episode_watches").select("episode_tvdb_id, rewatch_count").eq("user_id", user.id).in("series_tvdb_id", getPossibleTvdbIds())
+        ]);
+        seriesDetails = normalizeSeries(details?.data || details);
+        watchedEpisodeIds = new Set((watchedResult.data || []).map((item) => String(item.episode_tvdb_id)));
+        episodeRewatchCounts = new Map((watchedResult.data || []).map((item) => [String(item.episode_tvdb_id), Number(item.rewatch_count || 0)]));
+        renderSeries();
+        await loadEpisodes();
+      } catch (error) {
+        els.status.textContent = `Impossible de charger la série: ${getErrorMessage(error)}`;
+      }
+    }
+
+    async function loadFriendNotifications() {
+      const { data, error } = await client.rpc("list_streamory_friend_notifications");
+      notifications = error ? [] : data || [];
+      renderNotificationBadge();
+    }
+
+    function renderNotificationBadge() {
+      const count = notifications.length;
+      if (els.notificationsButton) els.notificationsButton.hidden = count === 0;
+      if (els.notificationsBadge) {
+        els.notificationsBadge.hidden = count === 0;
+        els.notificationsBadge.textContent = String(count);
+      }
+    }
+
+    function renderNotifications() {
+      if (!els.notificationsList) return;
+      els.notificationsList.innerHTML = "";
+      if (!notifications.length) {
+        els.notificationsList.append(createSocialMessage("Aucune notification."));
+        return;
+      }
+
+      notifications.forEach((notification) => {
+        const item = document.createElement("div");
+        item.className = "social-item";
+        const username = notification.username || "Utilisateur";
+        item.innerHTML = `
+          <div class="social-user">
+            <div class="social-avatar">👤</div>
+            <div>
+              <p class="social-name">${escapeHtml(username)}</p>
+              <p class="social-meta">Demande d'ami</p>
+            </div>
+          </div>
+        `;
+        els.notificationsList.append(item);
+      });
+    }
+
+    function createSocialMessage(message) {
+      const element = document.createElement("p");
+      element.className = "message";
+      element.textContent = message;
+      return element;
+    }
+
+    async function fetchTvdbEndpoint(endpoint) {
+      const { data, error } = await client.functions.invoke("tvdb-search", { body: { endpoint } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    }
+
+    async function fetchAllEpisodes() {
+      const allEpisodes = [];
+      for (let page = 0; page < 20; page += 1) {
+        const payload = await fetchTvdbEndpoint(`series/${encodeURIComponent(tvdbId)}/episodes/default?page=${page}`);
+        const pageEpisodes = normalizeEpisodePayload(payload?.data || payload);
+        allEpisodes.push(...pageEpisodes);
+        if (!hasNextPage(payload, pageEpisodes)) break;
+      }
+      return allEpisodes.sort((a, b) => a.seasonNumber - b.seasonNumber || a.number - b.number);
+    }
+
+    async function loadEpisodes() {
+      try {
+        episodes = await fetchAllEpisodes();
+        renderSeasons();
+      } catch (error) {
+        els.status.textContent = `Episodes indisponibles: ${getErrorMessage(error)}`;
+      }
+    }
+
+    function normalizeEpisodePayload(payload) {
+      const items = Array.isArray(payload?.episodes) ? payload.episodes : Array.isArray(payload) ? payload : [];
+      return items.map((episode) => ({
+        id: String(episode.id || episode.tvdb_id || ""),
+        seasonNumber: Number(episode.seasonNumber ?? episode.airedSeason ?? episode.season ?? 0),
+        number: Number(episode.number ?? episode.airedEpisodeNumber ?? episode.episodeNumber ?? 0),
+        title: episode.name || episode.title || "Episode sans titre",
+        overview: episode.overview || "",
+        aired: episode.aired || episode.firstAired || episode.airDate || episode.year || ""
+      })).filter((episode) => episode.id && episode.seasonNumber >= 0);
+    }
+
+    function hasNextPage(payload, pageEpisodes) {
+      const links = payload?.links || payload?.data?.links;
+      if (links?.next !== undefined && links.next !== null) return true;
+      return pageEpisodes.length >= 500;
+    }
+
+    function normalizeSeries(payload) {
+      const title = payload?.name || payload?.title || payload?.seriesName || "Série sans titre";
+      return {
+        title,
+        year: extractYear(payload?.firstAired || payload?.year),
+        status: translateSeriesStatus(payload?.status?.name || payload?.status),
+        genres: (payload?.genres || []).map((genre) => translateSeriesGenre(genre.name || genre)).filter(Boolean).slice(0, 4),
+        overview: payload?.overview || payload?.description || "",
+        imageUrl: normalizeImage(payload?.image || payload?.poster || findArtwork(payload))
+      };
+    }
+
+    function translateSeriesStatus(value) {
+      return translateLabel(value, SERIES_STATUS_LABELS);
+    }
+
+    function translateSeriesGenre(value) {
+      return translateLabel(value, SERIES_GENRE_LABELS);
+    }
+
+    function translateLabel(value, labels) {
+      if (!value) return "";
+      const text = String(value).trim();
+      return labels[normalizeLabelKey(text)] || text;
+    }
+
+    function normalizeLabelKey(value) {
+      return String(value || "").trim().toLowerCase().replaceAll("&", "and");
+    }
+
+    function renderSeries() {
+      document.title = `${seriesDetails.title} — Streamory`;
+      els.heading.textContent = seriesDetails.title;
+      els.poster.src = seriesDetails.imageUrl || posterPlaceholder();
+      els.poster.alt = `Affiche de ${seriesDetails.title}`;
+      els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(); }, { once: true });
+      els.meta.textContent = [seriesDetails.year, seriesDetails.status, ...seriesDetails.genres].filter(Boolean).join(" · ");
+      els.overview.textContent = seriesDetails.overview || "Aucun résumé disponible.";
+      renderSeasons();
+      els.status.textContent = "";
+      els.content.hidden = false;
+    }
+
+    function renderSeasons() {
+      els.seasons.innerHTML = "";
+      const groups = groupBySeason(episodes);
+      if (!groups.length) {
+        els.seasons.innerHTML = '<p class="message">Aucun épisode disponible.</p>';
+        return;
+      }
+
+      groups.forEach(([seasonNumber, seasonEpisodes], index) => {
+        const block = document.createElement("details");
+        block.className = "season-block";
+        const seasonKey = String(seasonNumber);
+        block.open = hasTouchedSeasonToggles ? openSeasonKeys.has(seasonKey) : false;
+        block.addEventListener("toggle", () => {
+          hasTouchedSeasonToggles = true;
+          if (block.open) openSeasonKeys.add(seasonKey);
+          else openSeasonKeys.delete(seasonKey);
+        });
+        const watchedCount = seasonEpisodes.filter((episode) => watchedEpisodeIds.has(episode.id)).length;
+        const allSeasonWatched = watchedCount === seasonEpisodes.length && seasonEpisodes.length > 0;
+        block.innerHTML = `
+          <summary class="season-header">
+            <span class="season-heading">
+              <span class="season-toggle">›</span>
+              <input class="season-check" type="checkbox" aria-label="Marquer ${escapeHtml(getSeasonTitle(seasonNumber))} comme vue" ${allSeasonWatched ? "checked" : ""}>
+              <h2>${getSeasonTitle(seasonNumber)}</h2>
+            </span>
+            <span class="season-progress">${watchedCount}/${seasonEpisodes.length} vus</span>
+          </summary>
+          <div class="episode-list"></div>
+        `;
+        const seasonCheck = block.querySelector(".season-check");
+        seasonCheck?.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+        seasonCheck?.addEventListener("change", () => toggleSeason(seasonEpisodes, seasonCheck));
+        const list = block.querySelector(".episode-list");
+        seasonEpisodes.forEach((episode) => list.append(createEpisodeRow(episode)));
+        els.seasons.append(block);
+      });
+    }
+
+    function createEpisodeRow(episode) {
+      const label = document.createElement("div");
+      label.className = "episode-row";
+      label.dataset.episodeId = episode.id;
+      label.classList.toggle("is-watched", watchedEpisodeIds.has(episode.id));
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = watchedEpisodeIds.has(episode.id);
+
+      const isFutureEpisode = isEpisodeUpcoming(episode);
+      const rewatchCount = episodeRewatchCounts.get(episode.id) || 0;
+      const watchCount = checkbox.checked ? rewatchCount + 1 : 0;
+
+      const number = document.createElement("span");
+      number.className = "episode-number";
+      number.textContent = episode.seasonNumber === 0
+        ? `SP${String(episode.number).padStart(2, "0")}`
+        : `E${String(episode.number).padStart(2, "0")}`;
+
+      const body = document.createElement("div");
+      const title = document.createElement("p");
+      title.className = "episode-title";
+      title.textContent = episode.title;
+      const date = document.createElement("p");
+      date.className = "episode-date";
+      date.textContent = formatEpisodeDate(episode.aired);
+      body.append(title, date);
+
+      const state = document.createElement("span");
+      state.className = "episode-state";
+      state.textContent = checkbox.checked ? (watchCount > 1 ? `Vu ×${watchCount}` : "Vu") : isFutureEpisode ? "" : "À voir";
+      state.hidden = isFutureEpisode && !checkbox.checked;
+      label.append(number, body, state, checkbox);
+      return label;
+    }
+
+    function handleEpisodeListClick(event) {
+      const row = event.target.closest(".episode-row");
+      if (!row || !els.seasons.contains(row)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const episode = episodes.find((item) => item.id === row.dataset.episodeId);
+      if (!episode) return;
+
+      const checkbox = row.querySelector('input[type="checkbox"]') || { checked: false, disabled: false };
+      if (watchedEpisodeIds.has(episode.id)) {
+        checkbox.checked = true;
+        handleWatchedEpisodeClick(episode);
+        return;
+      }
+      if (isEpisodeUpcoming(episode)) return;
+
+      checkbox.checked = true;
+      toggleEpisode(episode, checkbox, 0);
+    }
+
+
+    async function toggleEpisode(episode, checkbox, rewatchCount = null) {
+      checkbox.disabled = true;
+      const shouldMarkWatched = checkbox.checked;
+      const nextRewatchCount = rewatchCount ?? (shouldMarkWatched ? (episodeRewatchCounts.get(episode.id) || 0) : 0);
+      let error = null;
+      if (shouldMarkWatched) {
+        ({ error } = await client.from("user_episode_watches").upsert({
+          user_id: user.id,
+          series_tvdb_id: getStorageTvdbId(),
+          series_title: seriesDetails.title,
+          episode_tvdb_id: episode.id,
+          season_number: episode.seasonNumber,
+          episode_number: episode.number,
+          episode_name: episode.title,
+          watched_at: new Date().toISOString(),
+          rewatch_count: nextRewatchCount,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id,series_tvdb_id,episode_tvdb_id" }));
+      } else {
+        ({ error } = await deleteEpisodeWatch(episode.id));
+      }
+
+      if (error) {
+        els.status.textContent = "Impossible d'enregistrer l'épisode.";
+        checkbox.checked = !shouldMarkWatched;
+      } else {
+        els.status.textContent = "";
+        if (shouldMarkWatched) {
+          watchedEpisodeIds.add(episode.id);
+          episodeRewatchCounts.set(episode.id, nextRewatchCount);
+        } else {
+          watchedEpisodeIds.delete(episode.id);
+          episodeRewatchCounts.delete(episode.id);
+        }
+        try {
+          await upsertSeriesStatus();
+        } catch (statusError) {
+          console.warn("Impossible de mettre à jour le statut de la série.", statusError);
+        }
+        renderSeasons();
+      }
+      checkbox.disabled = false;
+    }
+
+    async function deleteEpisodeWatch(episodeId) {
+      return client.from("user_episode_watches")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("episode_tvdb_id", String(episodeId));
+    }
+
+    async function unwatchEpisode(episode) {
+      const previousRewatchCount = episodeRewatchCounts.get(episode.id) || 0;
+      watchedEpisodeIds.delete(episode.id);
+      episodeRewatchCounts.delete(episode.id);
+      els.status.textContent = "";
+      renderSeasons();
+
+      const { error } = await deleteEpisodeWatch(episode.id);
+      if (error) {
+        watchedEpisodeIds.add(episode.id);
+        episodeRewatchCounts.set(episode.id, previousRewatchCount);
+        els.status.textContent = `Impossible de repasser l'épisode en à voir: ${getErrorMessage(error)}`;
+        renderSeasons();
+        return;
+      }
+
+      try {
+        await upsertSeriesStatus();
+      } catch (statusError) {
+        console.warn("Impossible de mettre à jour le statut de la série.", statusError);
+      }
+    }
+
+    function handleWatchedEpisodeClick(episode) {
+      document.querySelector(".episode-choice-backdrop")?.remove();
+      const currentRewatchCount = episodeRewatchCounts.get(episode.id) || 0;
+      const backdrop = document.createElement("div");
+      backdrop.className = "episode-choice-backdrop";
+      backdrop.innerHTML = `
+        <div class="episode-choice-box" role="dialog" aria-modal="true" aria-label="Modifier le statut de l'épisode">
+          <p>${escapeHtml(episode.title)} est déjà marqué comme vu. Tu veux le compter comme revu ou dire que tu ne l'as pas vu ?</p>
+          <div class="episode-choice-actions">
+            <button type="button" data-action="rewatch">Je le revois</button>
+            <button type="button" data-action="unwatch">Je ne l'ai pas vu</button>
+          </div>
+        </div>
+      `;
+
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) backdrop.remove();
+      });
+
+      backdrop.querySelector('[data-action="rewatch"]')?.addEventListener("click", async () => {
+        backdrop.remove();
+        const fakeCheckbox = { checked: true, disabled: false };
+        await toggleEpisode(episode, fakeCheckbox, currentRewatchCount + 1);
+      });
+
+      backdrop.querySelector('[data-action="unwatch"]')?.addEventListener("click", async () => {
+        backdrop.remove();
+        await unwatchEpisode(episode);
+      });
+
+      document.body.append(backdrop);
+      backdrop.querySelector('[data-action="rewatch"]')?.focus();
+    }
+
+    async function toggleSeason(seasonEpisodes, checkbox) {
+      checkbox.disabled = true;
+      const shouldMarkWatched = checkbox.checked;
+      const previousWatchedIds = new Set(watchedEpisodeIds);
+      let error = null;
+
+      if (shouldMarkWatched) {
+        const now = new Date().toISOString();
+        const rows = seasonEpisodes.map((episode) => ({
+          user_id: user.id,
+          series_tvdb_id: getStorageTvdbId(),
+          series_title: seriesDetails.title,
+          episode_tvdb_id: episode.id,
+          season_number: episode.seasonNumber,
+          episode_number: episode.number,
+          episode_name: episode.title,
+          watched_at: now,
+          rewatch_count: episodeRewatchCounts.get(episode.id) || 0,
+          updated_at: now
+        }));
+        ({ error } = await client.from("user_episode_watches").upsert(rows, { onConflict: "user_id,series_tvdb_id,episode_tvdb_id" }));
+      } else {
+        ({ error } = await client.from("user_episode_watches")
+          .delete()
+          .eq("user_id", user.id)
+          .in("episode_tvdb_id", seasonEpisodes.map((episode) => episode.id)));
+      }
+
+      if (error) {
+        els.status.textContent = "Impossible d'enregistrer la saison.";
+        watchedEpisodeIds = previousWatchedIds;
+      } else {
+        els.status.textContent = "";
+        if (shouldMarkWatched) {
+          seasonEpisodes.forEach((episode) => {
+            watchedEpisodeIds.add(episode.id);
+            episodeRewatchCounts.set(episode.id, episodeRewatchCounts.get(episode.id) || 0);
+          });
+        } else {
+          seasonEpisodes.forEach((episode) => {
+            watchedEpisodeIds.delete(episode.id);
+            episodeRewatchCounts.delete(episode.id);
+          });
+        }
+        try {
+          await upsertSeriesStatus();
+        } catch (statusError) {
+          console.warn("Impossible de mettre à jour le statut de la série.", statusError);
+        }
+      }
+
+      renderSeasons();
+      checkbox.disabled = false;
+    }
+
+    async function upsertSeriesStatus() {
+      const statusEpisodes = getSeriesStatusEpisodes();
+      const watchedStatusCount = statusEpisodes.filter((episode) => watchedEpisodeIds.has(episode.id)).length;
+      const status = watchedStatusCount === 0 ? "watchlist" : watchedStatusCount >= statusEpisodes.length ? "watched" : "watching";
+      await client.from("user_items").upsert({
+        user_id: user.id,
+        tvdb_id: getStorageTvdbId(),
+        media_type: "series",
+        title: seriesDetails.title,
+        image_url: seriesDetails.imageUrl,
+        year: seriesDetails.year,
+        overview: seriesDetails.overview,
+        status,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,tvdb_id,media_type" });
+    }
+
+    function groupBySeason(list) {
+      const groups = new Map();
+      list.forEach((episode) => {
+        if (!groups.has(episode.seasonNumber)) groups.set(episode.seasonNumber, []);
+        groups.get(episode.seasonNumber).push(episode);
+      });
+      return [...groups.entries()].sort((a, b) => {
+        if (a[0] === 0) return 1;
+        if (b[0] === 0) return -1;
+        return a[0] - b[0];
+      });
+    }
+
+    function getSeasonTitle(seasonNumber) {
+      return Number(seasonNumber) === 0 ? "Épisodes spéciaux" : `Saison ${seasonNumber}`;
+    }
+
+    function isEpisodeUpcoming(episode) {
+      if (!episode.aired) return false;
+      const episodeDate = new Date(`${episode.aired}T00:00:00`);
+      if (Number.isNaN(episodeDate.getTime())) return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return episodeDate > today;
+    }
+
+    function formatEpisodeDate(value) {
+      if (!value) return "Date inconnue";
+      const date = new Date(`${value}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+    }
+
+    function getSeriesStatusEpisodes() {
+      const regularEpisodes = episodes.filter((episode) => episode.seasonNumber > 0);
+      return regularEpisodes.length ? regularEpisodes : episodes;
+    }
+
+    function extractYear(value) {
+      const match = String(value || "").match(/\d{4}/);
+      return match ? match[0] : null;
+    }
+
+    function findArtwork(payload) {
+      const artworks = Array.isArray(payload?.artworks) ? payload.artworks : [];
+      const artwork = artworks.find((item) => String(item.typeName || item.type || "").toLowerCase().includes("poster")) || artworks[0];
+      return artwork?.image || artwork?.thumbnail || artwork?.url;
+    }
+
+    function normalizeImage(value) {
+      if (!value) return "";
+      const url = String(value);
+      if (url.startsWith("http")) return url;
+      if (url.startsWith("/")) return `${POSTER_BASE}${url}`;
+      return `${POSTER_BASE}/banners/${url}`;
+    }
+
+    function normalizeTvdbId(value) {
+      const text = String(value || "");
+      const match = text.match(/\d+/);
+      return match ? match[0] : "";
+    }
+
+    function getStorageTvdbId() {
+      return rawTvdbId || tvdbId;
+    }
+
+    function getPossibleTvdbIds() {
+      return [...new Set([rawTvdbId, tvdbId].filter(Boolean).map(String))];
+    }
+
+    function getErrorMessage(error) {
+      return error?.message || String(error || "Erreur inconnue.");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    init();
+  </script>
+</body>
+</html>

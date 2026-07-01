@@ -44,7 +44,12 @@
         image.src = posterPlaceholder();
       }, { once: true });
 
-      figure.append(image);
+      const link = document.createElement("a");
+      link.href = `film.html?id=${encodeURIComponent(item.tvdb_id)}`;
+      link.setAttribute("aria-label", `Voir ${item.title || "ce film"}`);
+      link.append(image);
+
+      figure.append(link);
       return figure;
     }
 
