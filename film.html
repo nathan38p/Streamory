@@ -2,14 +2,14 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Film — Streamory</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     .detail-shell { width: min(100%, 920px); }
-    .detail-hero { display: grid; grid-template-columns: minmax(130px, 220px) 1fr; gap: 18px; align-items: start; }
+    .detail-hero { display: grid; grid-template-columns: minmax(110px, 180px) 1fr; gap: 18px; align-items: start; }
     .detail-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .detail-heading-row h2 { margin-right: auto; }
     .detail-poster { width: 100%; aspect-ratio: 2 / 3; border-radius: 8px; background: var(--panel-soft); object-fit: cover; }
@@ -26,7 +26,7 @@
     .movie-choice-actions { display: grid; gap: 10px; }
     .movie-choice-actions button { border: 1px solid var(--line); border-radius: 999px; padding: 10px 12px; background: var(--panel-soft); color: var(--text); font-weight: 900; cursor: pointer; }
     .movie-choice-actions button[data-action="unwatch"] { color: var(--muted); }
-    @media (max-width: 620px) { .detail-hero { grid-template-columns: 110px 1fr; } }
+    @media (max-width: 620px) { .detail-hero { grid-template-columns: 92px 1fr; } }
   </style>
 </head>
 <body>
@@ -57,6 +57,7 @@
             </div>
             <div class="detail-meta" id="movieMeta"></div>
             <p class="media-overview" id="movieOverview"></p>
+            <button class="overview-toggle" id="movieOverviewToggle" type="button" hidden>Afficher plus</button>
             <label class="watched-row" id="movieWatchedLabel">
               <input id="movieWatched" type="checkbox" />
               <span class="watched-icon" aria-hidden="true"></span>
@@ -89,6 +90,7 @@
       poster: document.getElementById("moviePoster"),
       meta: document.getElementById("movieMeta"),
       overview: document.getElementById("movieOverview"),
+      overviewToggle: document.getElementById("movieOverviewToggle"),
       watched: document.getElementById("movieWatched"),
       watchedLabel: document.getElementById("movieWatchedLabel"),
       watchedText: document.getElementById("movieWatchedText"),
@@ -237,6 +239,24 @@
       els.watchedLabel?.addEventListener("click", handleMovieWatchedClick);
       els.status.textContent = "";
       els.content.hidden = false;
+      setupExpandableOverview(els.overview, els.overviewToggle);
+    }
+
+    function setupExpandableOverview(overview, toggle) {
+      if (!overview || !toggle) return;
+      overview.classList.remove("is-expanded");
+      toggle.textContent = "Afficher plus";
+      toggle.hidden = true;
+
+      requestAnimationFrame(() => {
+        const isOverflowing = overview.scrollHeight > overview.clientHeight + 1;
+        toggle.hidden = !isOverflowing;
+      });
+
+      toggle.onclick = () => {
+        const isExpanded = overview.classList.toggle("is-expanded");
+        toggle.textContent = isExpanded ? "Réduire" : "Afficher plus";
+      };
     }
 
     async function handleMovieWatchedClick(event) {

@@ -353,6 +353,21 @@ select:focus {
   -webkit-box-orient: vertical;
 }
 
+.media-overview.is-expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.overview-toggle {
+  width: max-content;
+  margin-top: 8px;
+  padding: 0;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 850;
+}
+
 .card-actions {
   flex-wrap: wrap;
 }
@@ -385,7 +400,7 @@ select:focus {
   justify-content: space-between;
   gap: 14px;
   width: 100%;
-  min-height: 80px;
+  min-height: 48px;
   padding: 0 8px;
 }
 

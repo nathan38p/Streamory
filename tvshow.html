@@ -2,14 +2,14 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Série — Streamory</title>
   <link rel="stylesheet" href="styles.css" />
   <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     .detail-shell { width: min(100%, 980px); }
-    .detail-hero { display: grid; grid-template-columns: minmax(130px, 220px) 1fr; gap: 18px; align-items: start; }
+    .detail-hero { display: grid; grid-template-columns: minmax(110px, 180px) 1fr; gap: 18px; align-items: start; }
     .detail-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .detail-heading-row h2 { margin-right: auto; }
     .detail-poster { width: 100%; aspect-ratio: 2 / 3; border-radius: 8px; background: var(--panel-soft); object-fit: cover; }
@@ -19,11 +19,13 @@
     .season-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; cursor: pointer; list-style: none; }
     .season-header::-webkit-details-marker { display: none; }
     .season-heading { display: flex; align-items: center; gap: 10px; min-width: 0; }
-    .season-check { width: 22px; height: 22px; accent-color: #d7dce2; cursor: pointer; }
     .season-heading h2 { margin: 0; }
     .season-toggle { color: var(--muted); font-size: 0.9rem; font-weight: 900; transition: transform 0.16s ease; }
     .season-block[open] .season-toggle { transform: rotate(90deg); }
+    .season-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
     .season-progress { color: var(--muted); font-size: 0.86rem; font-weight: 700; white-space: nowrap; }
+    .season-state { min-width: 72px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: var(--panel-soft); color: var(--muted); font-size: 0.78rem; font-weight: 900; text-align: center; cursor: pointer; }
+    .season-state.is-watched { background: #22c55e; color: #07130b; border-color: #22c55e; }
     .episode-list { display: grid; border-top: 1px solid var(--line); }
     .episode-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border-top: 1px solid var(--line); cursor: pointer; }
     .episode-row:first-child { border-top: 0; }
@@ -41,9 +43,9 @@
     .episode-choice-actions button { border: 1px solid var(--line); border-radius: 999px; padding: 10px 12px; background: var(--panel-soft); color: var(--text); font-weight: 900; cursor: pointer; }
     .episode-choice-actions button[data-action="unwatch"] { color: var(--muted); }
     @media (max-width: 620px) {
-      .detail-hero { grid-template-columns: 110px 1fr; }
+      .detail-hero { grid-template-columns: 92px 1fr; }
       .episode-row { grid-template-columns: 48px 1fr auto; }
-      .episode-state { min-width: 58px; padding: 6px 8px; }
+      .episode-state, .season-state { min-width: 58px; padding: 6px 8px; }
     }
   </style>
 </head>
@@ -76,6 +78,7 @@
               </div>
               <div class="detail-meta" id="seriesMeta"></div>
               <p class="media-overview" id="seriesOverview"></p>
+              <button class="overview-toggle" id="seriesOverviewToggle" type="button" hidden>Afficher plus</button>
             </div>
           </div>
           <div class="seasons" id="seasonsList"></div>
@@ -155,6 +158,7 @@
       poster: document.getElementById("seriesPoster"),
       meta: document.getElementById("seriesMeta"),
       overview: document.getElementById("seriesOverview"),
+      overviewToggle: document.getElementById("seriesOverviewToggle"),
       seasons: document.getElementById("seasonsList"),
       profileButton: document.getElementById("profileButton"),
       notificationsButton: document.getElementById("notificationsButton"),
@@ -362,6 +366,24 @@ let episodeRewatchCounts = new Map();
       renderSeasons();
       els.status.textContent = "";
       els.content.hidden = false;
+      setupExpandableOverview(els.overview, els.overviewToggle);
+    }
+
+    function setupExpandableOverview(overview, toggle) {
+      if (!overview || !toggle) return;
+      overview.classList.remove("is-expanded");
+      toggle.textContent = "Afficher plus";
+      toggle.hidden = true;
+
+      requestAnimationFrame(() => {
+        const isOverflowing = overview.scrollHeight > overview.clientHeight + 1;
+        toggle.hidden = !isOverflowing;
+      });
+
+      toggle.onclick = () => {
+        const isExpanded = overview.classList.toggle("is-expanded");
+        toggle.textContent = isExpanded ? "Réduire" : "Afficher plus";
+      };
     }
 
     function renderSeasons() {
@@ -384,22 +406,32 @@ let episodeRewatchCounts = new Map();
         });
         const watchedCount = seasonEpisodes.filter((episode) => watchedEpisodeIds.has(episode.id)).length;
         const allSeasonWatched = watchedCount === seasonEpisodes.length && seasonEpisodes.length > 0;
+        const seasonWatchCount = getSeasonWatchCount(seasonEpisodes);
         block.innerHTML = `
           <summary class="season-header">
             <span class="season-heading">
               <span class="season-toggle">›</span>
-              <input class="season-check" type="checkbox" aria-label="Marquer ${escapeHtml(getSeasonTitle(seasonNumber))} comme vue" ${allSeasonWatched ? "checked" : ""}>
               <h2>${getSeasonTitle(seasonNumber)}</h2>
             </span>
-            <span class="season-progress">${watchedCount}/${seasonEpisodes.length} vus</span>
+            <span class="season-actions">
+              <span class="season-progress">${watchedCount}/${seasonEpisodes.length} vus</span>
+              <button class="season-state ${allSeasonWatched ? "is-watched" : ""}" type="button" aria-label="Modifier ${escapeHtml(getSeasonTitle(seasonNumber))}">
+                ${allSeasonWatched ? (seasonWatchCount > 1 ? `Vu ×${seasonWatchCount}` : "Vu") : "À voir"}
+              </button>
+            </span>
           </summary>
           <div class="episode-list"></div>
         `;
-        const seasonCheck = block.querySelector(".season-check");
-        seasonCheck?.addEventListener("click", (event) => {
+        const seasonState = block.querySelector(".season-state");
+        seasonState?.addEventListener("click", (event) => {
+          event.preventDefault();
           event.stopPropagation();
+          if (allSeasonWatched) {
+            handleWatchedSeasonClick(seasonEpisodes);
+            return;
+          }
+          toggleSeason(seasonEpisodes, seasonState, "watch");
         });
-        seasonCheck?.addEventListener("change", () => toggleSeason(seasonEpisodes, seasonCheck));
         const list = block.querySelector(".episode-list");
         seasonEpisodes.forEach((episode) => list.append(createEpisodeRow(episode)));
         els.seasons.append(block);
@@ -440,6 +472,12 @@ let episodeRewatchCounts = new Map();
       state.hidden = isFutureEpisode && !checkbox.checked;
       label.append(number, body, state, checkbox);
       return label;
+    }
+
+    function getSeasonWatchCount(seasonEpisodes) {
+      if (!seasonEpisodes.length || seasonEpisodes.some((episode) => !watchedEpisodeIds.has(episode.id))) return 0;
+      const watchCounts = seasonEpisodes.map((episode) => (episodeRewatchCounts.get(episode.id) || 0) + 1);
+      return Math.min(...watchCounts);
     }
 
     function handleEpisodeListClick(event) {
@@ -573,10 +611,44 @@ let episodeRewatchCounts = new Map();
       backdrop.querySelector('[data-action="rewatch"]')?.focus();
     }
 
-    async function toggleSeason(seasonEpisodes, checkbox) {
-      checkbox.disabled = true;
-      const shouldMarkWatched = checkbox.checked;
+    function handleWatchedSeasonClick(seasonEpisodes) {
+      document.querySelector(".episode-choice-backdrop")?.remove();
+      const backdrop = document.createElement("div");
+      backdrop.className = "episode-choice-backdrop";
+      backdrop.innerHTML = `
+        <div class="episode-choice-box" role="dialog" aria-modal="true" aria-label="Modifier le statut de la saison">
+          <p>Cette saison est déjà vue. Tu veux la compter comme revue ou la repasser en à voir ?</p>
+          <div class="episode-choice-actions">
+            <button type="button" data-action="rewatch">Je la revois</button>
+            <button type="button" data-action="unwatch">À voir</button>
+          </div>
+        </div>
+      `;
+
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop) backdrop.remove();
+      });
+
+      backdrop.querySelector('[data-action="rewatch"]')?.addEventListener("click", async () => {
+        backdrop.remove();
+        await toggleSeason(seasonEpisodes, null, "rewatch");
+      });
+
+      backdrop.querySelector('[data-action="unwatch"]')?.addEventListener("click", async () => {
+        backdrop.remove();
+        await toggleSeason(seasonEpisodes, null, "unwatch");
+      });
+
+      document.body.append(backdrop);
+      backdrop.querySelector('[data-action="rewatch"]')?.focus();
+    }
+
+    async function toggleSeason(seasonEpisodes, button, action) {
+      if (button) button.disabled = true;
+      const shouldMarkWatched = action !== "unwatch";
+      const shouldRewatch = action === "rewatch";
       const previousWatchedIds = new Set(watchedEpisodeIds);
+      const previousRewatchCounts = new Map(episodeRewatchCounts);
       let error = null;
 
       if (shouldMarkWatched) {
@@ -590,7 +662,7 @@ let episodeRewatchCounts = new Map();
           episode_number: episode.number,
           episode_name: episode.title,
           watched_at: now,
-          rewatch_count: episodeRewatchCounts.get(episode.id) || 0,
+          rewatch_count: shouldRewatch ? (episodeRewatchCounts.get(episode.id) || 0) + 1 : (episodeRewatchCounts.get(episode.id) || 0),
           updated_at: now
         }));
         ({ error } = await client.from("user_episode_watches").upsert(rows, { onConflict: "user_id,series_tvdb_id,episode_tvdb_id" }));
@@ -604,12 +676,13 @@ let episodeRewatchCounts = new Map();
       if (error) {
         els.status.textContent = "Impossible d'enregistrer la saison.";
         watchedEpisodeIds = previousWatchedIds;
+        episodeRewatchCounts = previousRewatchCounts;
       } else {
         els.status.textContent = "";
         if (shouldMarkWatched) {
           seasonEpisodes.forEach((episode) => {
             watchedEpisodeIds.add(episode.id);
-            episodeRewatchCounts.set(episode.id, episodeRewatchCounts.get(episode.id) || 0);
+            episodeRewatchCounts.set(episode.id, shouldRewatch ? (episodeRewatchCounts.get(episode.id) || 0) + 1 : (episodeRewatchCounts.get(episode.id) || 0));
           });
         } else {
           seasonEpisodes.forEach((episode) => {
@@ -625,7 +698,7 @@ let episodeRewatchCounts = new Map();
       }
 
       renderSeasons();
-      checkbox.disabled = false;
+      if (button) button.disabled = false;
     }
 
     async function upsertSeriesStatus() {

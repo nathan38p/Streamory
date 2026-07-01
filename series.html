@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Séries — Streamory</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="styles.css" />
@@ -141,6 +141,79 @@
 
       seriesStatus.textContent = "";
       series.forEach((item) => seriesList.appendChild(createSeriesCard(item)));
+      const didUpdatePosters = await backfillMissingPosters(client, series, "series");
+      if (didUpdatePosters) {
+        seriesList.innerHTML = "";
+        series.forEach((item) => seriesList.appendChild(createSeriesCard(item)));
+      }
+    }
+
+    async function backfillMissingPosters(client, items, mediaType) {
+      const missingItems = items.filter((item) => item.id && item.tvdb_id && !item.image_url);
+      if (!missingItems.length) return false;
+
+      let didUpdate = false;
+      for (const item of missingItems) {
+        try {
+          const details = await fetchTheTvdbDetails(client, item.tvdb_id, mediaType);
+          if (!details.image_url) continue;
+
+          item.image_url = details.image_url;
+          didUpdate = true;
+
+          await client
+            .from("user_items")
+            .update({ image_url: details.image_url })
+            .eq("id", item.id);
+        } catch (_error) {
+          // Garde le placeholder si TheTVDB ne renvoie pas d'affiche.
+        }
+      }
+
+      return didUpdate;
+    }
+
+    async function fetchTheTvdbDetails(client, tvdbId, mediaType) {
+      const endpoint = mediaType === "movie"
+        ? `movies/${encodeURIComponent(normalizeTvdbId(tvdbId))}/extended`
+        : `series/${encodeURIComponent(normalizeTvdbId(tvdbId))}/extended`;
+      const { data, error } = await client.functions.invoke("tvdb-search", { body: { endpoint } });
+      if (error) throw error;
+
+      const payload = data?.data || data;
+      const artwork = findPrimaryTheTvdbArtwork(payload);
+      return {
+        image_url: normalizeTheTvdbImageUrl(
+          payload?.image ||
+          payload?.image_url ||
+          payload?.poster ||
+          payload?.poster_url ||
+          artwork?.image ||
+          artwork?.thumbnail ||
+          artwork?.url
+        )
+      };
+    }
+
+    function findPrimaryTheTvdbArtwork(payload) {
+      const artworks = Array.isArray(payload?.artworks) ? payload.artworks : [];
+      return artworks.find((artwork) => {
+        const type = String(artwork?.type || artwork?.typeName || artwork?.artworkType || "").toLowerCase();
+        return type.includes("poster") || type.includes("cover");
+      }) || artworks[0] || null;
+    }
+
+    function normalizeTheTvdbImageUrl(value) {
+      if (!value) return null;
+      const url = String(value);
+      if (url.startsWith("http://") || url.startsWith("https://")) return url;
+      if (url.startsWith("/")) return `https://artworks.thetvdb.com${url}`;
+      return `https://artworks.thetvdb.com/banners/${url}`;
+    }
+
+    function normalizeTvdbId(value) {
+      const match = String(value || "").match(/\d+/);
+      return match ? match[0] : "";
     }
 
     loadSeriesToContinue();
