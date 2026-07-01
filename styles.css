@@ -53,6 +53,11 @@ button:disabled {
   width: min(100%, 980px);
 }
 
+.app-shell.full-shell {
+  width: 100%;
+  max-width: none;
+}
+
 .topbar,
 .section-title,
 .search-row,

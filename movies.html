@@ -173,8 +173,17 @@
 
 	      movies.forEach((item) => moviesList.appendChild(createMovieCard(item)));
 	      moviesStatus.textContent = "";
-	      await backfillMissingPosters(moviesClient, movies, "movie");
 	      isLoadingMovies = false;
+	      await backfillMissingPosters(moviesClient, movies, "movie");
+	      loadNextMoviesPageIfNeeded();
+	    }
+
+	    function loadNextMoviesPageIfNeeded() {
+	      if (!hasMoreMovies || !moviesScrollSentinel) return;
+	      requestAnimationFrame(() => {
+	        const bounds = moviesScrollSentinel.getBoundingClientRect();
+	        if (bounds.top < window.innerHeight + 600) loadNextMoviesPage();
+	      });
 	    }
 
     async function backfillMissingPosters(client, items, mediaType) {

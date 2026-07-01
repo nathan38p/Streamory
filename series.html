@@ -204,8 +204,17 @@
 
 	      series.forEach((item) => seriesList.appendChild(createSeriesCard(item)));
 	      seriesStatus.textContent = hasMoreSeries ? "" : "";
-	      await backfillMissingPosters(seriesClient, series, "series");
 	      isLoadingSeries = false;
+	      await backfillMissingPosters(seriesClient, series, "series");
+	      loadNextSeriesPageIfNeeded();
+	    }
+
+	    function loadNextSeriesPageIfNeeded() {
+	      if (!hasMoreSeries || !seriesScrollSentinel) return;
+	      requestAnimationFrame(() => {
+	        const bounds = seriesScrollSentinel.getBoundingClientRect();
+	        if (bounds.top < window.innerHeight + 600) loadNextSeriesPage();
+	      });
 	    }
 
     async function backfillMissingPosters(client, items, mediaType) {
