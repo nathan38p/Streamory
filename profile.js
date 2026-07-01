@@ -411,10 +411,7 @@ function createProfilePoster(item) {
     image.src = posterPlaceholder(item.title);
   }, { once: true });
 
-  const caption = document.createElement("figcaption");
-  caption.textContent = item.title || "Sans titre";
-
-  link.append(image, caption);
+  link.append(image);
   figure.append(link);
   return figure;
 }

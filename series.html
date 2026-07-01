@@ -11,7 +11,7 @@
 <style>
 .series-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 16px;
   width: 100%;
 }
@@ -26,12 +26,6 @@
   width: 100%;
   aspect-ratio: 2 / 3;
   object-fit: cover;
-}
-
-@media (max-width: 900px) {
-  .series-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 640px) {

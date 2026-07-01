@@ -73,7 +73,12 @@ button:disabled {
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
   margin-bottom: 22px;
+  padding: 10px 0;
+  background: var(--bg);
 }
 
 .header-actions {
@@ -636,7 +641,7 @@ select:focus {
 /* --- Series grid styles --- */
 .series-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 16px;
   width: 100%;
 }
