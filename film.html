@@ -14,12 +14,14 @@
     .detail-heading-row h2 { margin-right: auto; }
     .detail-poster { width: 100%; aspect-ratio: 2 / 3; border-radius: 8px; background: var(--panel-soft); object-fit: cover; }
     .detail-meta { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 14px; color: var(--muted); font-size: 0.9rem; }
-    .watched-row { display: inline-flex; align-items: center; gap: 10px; min-height: 46px; margin-top: 4px; padding: 0 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel-soft); color: var(--muted); font-weight: 900; cursor: pointer; }
+    .movie-watch-list { grid-column: 1 / -1; margin-top: 4px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.02); }
+    .watched-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: start; min-height: 56px; padding: 10px 12px; background: var(--panel); color: var(--text); cursor: pointer; }
     .watched-row input { position: absolute; opacity: 0; pointer-events: none; }
-    .watched-row.is-watched { background: #22c55e; color: #07130b; border-color: #22c55e; }
-    .watched-icon { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; border: 2px solid currentColor; border-radius: 999px; font-size: 0.86rem; line-height: 1; }
-    .watched-row:not(.is-watched) .watched-icon::before { content: ""; }
-    .watched-row.is-watched .watched-icon::before { content: "✓"; }
+    .movie-watch-number { align-self: center; color: var(--muted); font-size: 0.78rem; font-weight: 900; }
+    .movie-watch-title { display: block; margin: 0 0 3px; color: var(--text); font-size: 0.94rem; font-weight: 850; line-height: 1.25; }
+    .movie-watch-meta { display: block; margin: 0; color: var(--muted); font-size: 0.78rem; font-weight: 700; line-height: 1.25; }
+    .movie-watch-state { align-self: center; min-width: 72px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; background: var(--panel-soft); color: var(--muted); font-size: 0.78rem; font-weight: 900; text-align: center; }
+    .watched-row.is-watched .movie-watch-state { background: #22c55e; color: #07130b; border-color: #22c55e; }
     .movie-choice-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, 0.55); }
     .movie-choice-box { width: min(100%, 340px); border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--panel); box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35); }
     .movie-choice-box p { margin: 0 0 14px; color: var(--text); font-weight: 800; }
@@ -58,10 +60,16 @@
             <div class="detail-meta" id="movieMeta"></div>
             <p class="media-overview" id="movieOverview"></p>
             <button class="overview-toggle" id="movieOverviewToggle" type="button" hidden>Afficher plus</button>
+          </div>
+          <div class="movie-watch-list">
             <label class="watched-row" id="movieWatchedLabel">
+              <span class="movie-watch-number">Film</span>
+              <span>
+                <span class="movie-watch-title" id="movieWatchTitle">Film</span>
+                <span class="movie-watch-meta" id="movieWatchMeta">Long-métrage</span>
+              </span>
+              <span class="movie-watch-state" id="movieWatchedText">À voir</span>
               <input id="movieWatched" type="checkbox" />
-              <span class="watched-icon" aria-hidden="true"></span>
-              <span id="movieWatchedText">À voir</span>
             </label>
           </div>
         </div>
@@ -81,6 +89,18 @@
 
   <script>
     const POSTER_BASE = "https://artworks.thetvdb.com";
+    const DETAIL_COUNTRY_LANGUAGE_CODES = {
+      FR: "fra",
+      BE: "nld",
+      CH: "deu",
+      CA: "eng",
+      US: "eng",
+      GB: "eng",
+      ES: "spa",
+      IT: "ita",
+      DE: "deu",
+      PT: "por"
+    };
     const rawTvdbId = new URLSearchParams(window.location.search).get("id");
     const tvdbId = normalizeTvdbId(rawTvdbId);
     const els = {
@@ -94,6 +114,8 @@
       watched: document.getElementById("movieWatched"),
       watchedLabel: document.getElementById("movieWatchedLabel"),
       watchedText: document.getElementById("movieWatchedText"),
+      watchTitle: document.getElementById("movieWatchTitle"),
+      watchMeta: document.getElementById("movieWatchMeta"),
       profileButton: document.getElementById("profileButton"),
       notificationsButton: document.getElementById("notificationsButton"),
       notificationsBadge: document.getElementById("notificationsBadge"),
@@ -179,7 +201,7 @@
 
       try {
         const [details, itemResult] = await Promise.all([
-          fetchTvdbEndpoint(`movies/${encodeURIComponent(tvdbId)}/extended`),
+          fetchTvdbEndpoint(`movies/${encodeURIComponent(tvdbId)}/extended?meta=translations`),
           client.from("user_items").select("*").eq("user_id", user.id).in("tvdb_id", getPossibleTvdbIds()).eq("media_type", "movie").limit(1).maybeSingle()
         ]);
         movieDetails = normalizeMovie(details?.data || details);
@@ -245,14 +267,81 @@
 
     function normalizeMovie(payload) {
       const title = payload?.name || payload?.title || "Film sans titre";
+      const language = getCurrentTvdbLanguage();
       return {
         title,
         year: extractYear(payload?.released || payload?.releaseDate || payload?.firstAired || payload?.year),
         runtime: payload?.runtime || payload?.runtimeMinutes,
         genres: (payload?.genres || []).map((genre) => genre.name || genre).filter(Boolean).slice(0, 4),
-        overview: payload?.overview || payload?.description || "",
+        overview: pickLocalizedValue(payload, ["overview", "description"], language),
         imageUrl: normalizeImage(payload?.image || payload?.poster || payload?.poster_url || findArtwork(payload))
       };
+    }
+
+    function getCurrentTvdbLanguage() {
+      return getTvdbLanguageForCountry(user?.user_metadata?.country || "FR");
+    }
+
+    function getTvdbLanguageForCountry(country) {
+      return DETAIL_COUNTRY_LANGUAGE_CODES[String(country || "").toUpperCase()] || "eng";
+    }
+
+    function pickLocalizedValue(item, fields, language) {
+      const translations = item?.translations || {};
+      const languageValue = getTranslationValue(translations, language, fields);
+      if (languageValue) return languageValue;
+
+      const englishValue = getTranslationValue(translations, "eng", fields);
+      if (englishValue) return englishValue;
+
+      for (const field of fields) {
+        if (item?.[field]) return item[field];
+      }
+
+      return "";
+    }
+
+    function getTranslationValue(translations, language, fields) {
+      if (!translations || !language) return "";
+      const normalizedLanguage = normalizeLanguageCode(language);
+      const directTranslation = !Array.isArray(translations) && typeof translations === "object"
+        ? translations[language] || translations[normalizedLanguage]
+        : null;
+      const directValue = normalizeTranslationValue(directTranslation, fields);
+      if (directValue) return directValue;
+
+      const translationList = collectTranslationList(translations);
+      const languageTranslation = translationList.find((translation) => {
+        return [
+          translation?.language,
+          translation?.language_code,
+          translation?.iso_639_2,
+          translation?.iso639_2
+        ].filter(Boolean).map(normalizeLanguageCode).includes(normalizedLanguage);
+      });
+
+      return normalizeTranslationValue(languageTranslation, fields);
+    }
+
+    function collectTranslationList(translations) {
+      if (Array.isArray(translations)) return translations;
+      if (!translations || typeof translations !== "object") return [];
+      return Object.values(translations).flatMap((value) => Array.isArray(value) ? value : []);
+    }
+
+    function normalizeTranslationValue(translation, fields) {
+      if (!translation) return "";
+      if (typeof translation === "string") return translation;
+
+      for (const field of fields) {
+        if (translation[field]) return translation[field];
+      }
+
+      return "";
+    }
+
+    function normalizeLanguageCode(value) {
+      return String(value || "").toLowerCase();
     }
 
     function renderMovie(savedItem) {
@@ -263,6 +352,8 @@
       els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(movieDetails.title); }, { once: true });
       els.meta.textContent = [movieDetails.year, movieDetails.runtime ? `${movieDetails.runtime} min` : "", ...movieDetails.genres].filter(Boolean).join(" · ");
       els.overview.textContent = movieDetails.overview || "Aucun résumé disponible.";
+      if (els.watchTitle) els.watchTitle.textContent = movieDetails.title;
+      if (els.watchMeta) els.watchMeta.textContent = [movieDetails.year, movieDetails.runtime ? `${movieDetails.runtime} min` : ""].filter(Boolean).join(" · ") || "Long-métrage";
       movieWatchCount = getInitialMovieWatchCount(savedItem);
       els.watched.checked = movieWatchCount > 0;
       updateMovieWatchedState();

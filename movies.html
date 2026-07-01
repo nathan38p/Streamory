@@ -13,6 +13,16 @@
 </head>
 <body>
   <main class="app-shell full-shell">
+    <header class="topbar">
+      <div>
+        <h1 id="siteTitle" style="cursor:pointer;" onclick="window.location.href='app.html'">Streamory</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button notification-button" type="button" aria-label="Notifications" hidden>🔔</button>
+        <button class="icon-button" type="button" aria-label="Profil" onclick="window.location.href='profile.html'" style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#1a1d22;">👤</button>
+      </div>
+    </header>
+
     <section class="library">
       <div class="section-title">
         <h1>Films</h1>
@@ -30,6 +40,7 @@
 	    const moviesStatus = document.getElementById("moviesStatus");
 	    const moviesScrollSentinel = document.getElementById("moviesScrollSentinel");
 	    const PAGE_SIZE = 40;
+	    const moviesStatusFilter = new URLSearchParams(window.location.search).get("status") === "watchlist" ? "watchlist" : "";
 	    let moviesClient = null;
 	    let moviesUser = null;
 	    let moviesOffset = 0;
@@ -143,17 +154,18 @@
 	    async function loadNextMoviesPage() {
 	      if (isLoadingMovies || !hasMoreMovies || !moviesClient || !moviesUser) return;
 	      isLoadingMovies = true;
-	      moviesStatus.textContent = moviesOffset === 0 ? "Chargement des films…" : "Chargement de la suite…";
+	      moviesStatus.textContent = moviesOffset === 0 ? `Chargement des ${getMoviesPageLabel().toLowerCase()}…` : "Chargement de la suite…";
 
 	      const from = moviesOffset;
 	      const to = moviesOffset + PAGE_SIZE;
-	      const { data, error } = await moviesClient
+	      let query = moviesClient
 	        .from("user_items")
 	        .select("*")
 	        .eq("media_type", "movie")
 	        .eq("user_id", moviesUser.id)
-	        .order("updated_at", { ascending: false })
-	        .range(from, to);
+	        .order("updated_at", { ascending: false });
+	      if (moviesStatusFilter) query = query.eq("status", moviesStatusFilter);
+	      const { data, error } = await query.range(from, to);
 
 	      if (error) {
 	        moviesStatus.textContent = "Impossible de charger les films.";
@@ -166,7 +178,7 @@
 	      moviesOffset += movies.length;
 
 	      if (!movies.length && moviesOffset === 0) {
-	        moviesStatus.textContent = "Aucun film ajouté.";
+	        moviesStatus.textContent = moviesStatusFilter ? "Aucun film à voir." : "Aucun film ajouté.";
 	        isLoadingMovies = false;
 	        return;
 	      }
@@ -184,6 +196,18 @@
 	        const bounds = moviesScrollSentinel.getBoundingClientRect();
 	        if (bounds.top < window.innerHeight + 600) loadNextMoviesPage();
 	      });
+	    }
+
+	    function configureMoviesPage() {
+	      const title = getMoviesPageLabel();
+	      document.title = `${title} — Streamory`;
+	      const heading = document.querySelector(".library .section-title h1");
+	      if (heading) heading.textContent = title;
+	      if (moviesStatus) moviesStatus.textContent = `Chargement des ${title.toLowerCase()}…`;
+	    }
+
+	    function getMoviesPageLabel() {
+	      return moviesStatusFilter ? "Films à voir" : "Films";
 	    }
 
     async function backfillMissingPosters(client, items, mediaType) {
@@ -282,7 +306,8 @@
       return match ? match[0] : "";
     }
 
-    loadMovies();
+	    configureMoviesPage();
+	    loadMovies();
   </script>
 </body>
 </html>

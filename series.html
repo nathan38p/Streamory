@@ -37,6 +37,16 @@
 </head>
 <body>
   <main class="app-shell full-shell">
+    <header class="topbar">
+      <div>
+        <h1 id="siteTitle" style="cursor:pointer;" onclick="window.location.href='app.html'">Streamory</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button notification-button" type="button" aria-label="Notifications" hidden>🔔</button>
+        <button class="icon-button" type="button" aria-label="Profil" onclick="window.location.href='profile.html'" style="width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#1a1d22;">👤</button>
+      </div>
+    </header>
+
     <section class="library">
       <div class="section-title">
         <h1>Séries</h1>
@@ -55,13 +65,14 @@
 	    const seriesStatus = document.getElementById("seriesStatus");
 	    const seriesScrollSentinel = document.getElementById("seriesScrollSentinel");
 	    const PAGE_SIZE = 40;
+	    const seriesStatusFilter = new URLSearchParams(window.location.search).get("status") === "watchlist" ? "watchlist" : "";
 	    let seriesClient = null;
 	    let seriesUser = null;
 	    let seriesOffset = 0;
 	    let hasMoreSeries = true;
 	    let isLoadingSeries = false;
 
-    function posterPlaceholder(title = "Sans titre") {
+	    function posterPlaceholder(title = "Sans titre") {
       const lines = splitPlaceholderTitle(title);
       const lineHeight = 18;
       const startY = 120 - ((lines.length - 1) * lineHeight) / 2;
@@ -168,17 +179,18 @@
 	    async function loadNextSeriesPage() {
 	      if (isLoadingSeries || !hasMoreSeries || !seriesClient || !seriesUser) return;
 	      isLoadingSeries = true;
-	      seriesStatus.textContent = seriesOffset === 0 ? "Chargement des séries…" : "Chargement de la suite…";
+	      seriesStatus.textContent = seriesOffset === 0 ? `Chargement des ${getSeriesPageLabel().toLowerCase()}…` : "Chargement de la suite…";
 
 	      const from = seriesOffset;
 	      const to = seriesOffset + PAGE_SIZE;
-	      const { data, error } = await seriesClient
+	      let query = seriesClient
 	        .from("user_items")
 	        .select("*")
 	        .eq("media_type", "series")
 	        .eq("user_id", seriesUser.id)
-	        .order("updated_at", { ascending: false })
-	        .range(from, to);
+	        .order("updated_at", { ascending: false });
+	      if (seriesStatusFilter) query = query.eq("status", seriesStatusFilter);
+	      const { data, error } = await query.range(from, to);
 
 	      if (error) {
 	        seriesStatus.textContent = "Impossible de charger les séries.";
@@ -191,7 +203,7 @@
 	      seriesOffset += series.length;
 
 	      if (!series.length && seriesOffset === 0) {
-	        seriesStatus.textContent = "Aucune série ajoutée.";
+	        seriesStatus.textContent = seriesStatusFilter ? "Aucune série à voir." : "Aucune série ajoutée.";
 	        isLoadingSeries = false;
 	        return;
 	      }
@@ -209,6 +221,18 @@
 	        const bounds = seriesScrollSentinel.getBoundingClientRect();
 	        if (bounds.top < window.innerHeight + 600) loadNextSeriesPage();
 	      });
+	    }
+
+	    function configureSeriesPage() {
+	      const title = getSeriesPageLabel();
+	      document.title = `${title} — Streamory`;
+	      const heading = document.querySelector(".library .section-title h1");
+	      if (heading) heading.textContent = title;
+	      if (seriesStatus) seriesStatus.textContent = `Chargement des ${title.toLowerCase()}…`;
+	    }
+
+	    function getSeriesPageLabel() {
+	      return seriesStatusFilter ? "Séries à voir" : "Séries";
 	    }
 
     async function backfillMissingPosters(client, items, mediaType) {
@@ -307,7 +331,8 @@
       return match ? match[0] : "";
     }
 
-    loadSeriesToContinue();
+	    configureSeriesPage();
+	    loadSeriesToContinue();
   </script>
 </body>
 </html>

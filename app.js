@@ -771,6 +771,8 @@ function clearResults() {
 }
 
 async function loadLibrary() {
+  if (!els.libraryList) return;
+
   const { data, error } = await state.client
     .from("user_items")
     .select("*")
@@ -855,7 +857,7 @@ async function upsertMedia(item, status) {
     .upsert(record, { onConflict: "user_id,tvdb_id,media_type" });
 
   if (!error) {
-    await loadLibrary();
+    if (els.libraryList) await loadLibrary();
     clearResults();
   }
 }
@@ -874,6 +876,8 @@ async function deleteItem(item) {
 }
 
 function renderLibrary() {
+  if (!els.libraryList || !els.emptyState) return;
+
   els.libraryList.innerHTML = "";
   const visibleItems = state.library.filter((item) => {
     return state.statusFilter === "all" || item.status === state.statusFilter;

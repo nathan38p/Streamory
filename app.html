@@ -37,6 +37,15 @@
           </div>
         </section>
 
+        <section class="home-shortcuts" aria-label="Listes à voir">
+          <a class="home-shortcut" href="series.html?status=watchlist">
+            <span>Séries à voir</span>
+          </a>
+          <a class="home-shortcut" href="movies.html?status=watchlist">
+            <span>Films à voir</span>
+          </a>
+        </section>
+
         <section class="search-results" id="searchResults" hidden>
           <div class="section-title">
             <h2>Résultats</h2>
@@ -44,23 +53,6 @@
           </div>
           <div class="media-list" id="resultsList"></div>
           <button class="secondary-button" id="loadMoreResultsButton" type="button" hidden>Afficher plus de résultats</button>
-        </section>
-
-        <section class="library" id="libraryPanel">
-          <div class="section-title">
-            <h2>Ma liste</h2>
-          </div>
-          <div class="filters" aria-label="Filtres">
-            <button class="filter active" type="button" data-status="all">Tout</button>
-            <button class="filter" type="button" data-status="watchlist">À voir</button>
-            <button class="filter" type="button" data-status="watching">En cours</button>
-            <button class="filter" type="button" data-status="watched">Vu</button>
-          </div>
-          <div class="empty-state" id="emptyState">
-            <h3>Ta liste est vide</h3>
-            <p>Recherche un film ou une série pour l’ajouter.</p>
-          </div>
-          <div class="media-list" id="libraryList"></div>
         </section>
 
       </main>

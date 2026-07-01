@@ -99,6 +99,18 @@
 
   <script>
     const POSTER_BASE = "https://artworks.thetvdb.com";
+    const DETAIL_COUNTRY_LANGUAGE_CODES = {
+      FR: "fra",
+      BE: "nld",
+      CH: "deu",
+      CA: "eng",
+      US: "eng",
+      GB: "eng",
+      ES: "spa",
+      IT: "ita",
+      DE: "deu",
+      PT: "por"
+    };
     const SERIES_STATUS_LABELS = {
       canceled: "Annulée",
       cancelled: "Annulée",
@@ -250,7 +262,7 @@ let episodeRewatchCounts = new Map();
 
       try {
         const [details, watchedResult] = await Promise.all([
-          fetchTvdbEndpoint(`series/${encodeURIComponent(tvdbId)}/extended`),
+          fetchTvdbEndpoint(`series/${encodeURIComponent(tvdbId)}/extended?meta=translations`),
           client.from("user_episode_watches").select("episode_tvdb_id, watched_count, rewatch_count").eq("user_id", user.id).in("series_tvdb_id", getPossibleTvdbIds())
         ]);
         seriesDetails = normalizeSeries(details?.data || details);
@@ -357,14 +369,81 @@ let episodeRewatchCounts = new Map();
 
     function normalizeSeries(payload) {
       const title = payload?.name || payload?.title || payload?.seriesName || "Série sans titre";
+      const language = getCurrentTvdbLanguage();
       return {
         title,
         year: extractYear(payload?.firstAired || payload?.year),
         status: translateSeriesStatus(payload?.status?.name || payload?.status),
         genres: (payload?.genres || []).map((genre) => translateSeriesGenre(genre.name || genre)).filter(Boolean).slice(0, 4),
-        overview: payload?.overview || payload?.description || "",
+        overview: pickLocalizedValue(payload, ["overview", "description"], language),
         imageUrl: normalizeImage(payload?.image || payload?.poster || findArtwork(payload))
       };
+    }
+
+    function getCurrentTvdbLanguage() {
+      return getTvdbLanguageForCountry(user?.user_metadata?.country || "FR");
+    }
+
+    function getTvdbLanguageForCountry(country) {
+      return DETAIL_COUNTRY_LANGUAGE_CODES[String(country || "").toUpperCase()] || "eng";
+    }
+
+    function pickLocalizedValue(item, fields, language) {
+      const translations = item?.translations || {};
+      const languageValue = getTranslationValue(translations, language, fields);
+      if (languageValue) return languageValue;
+
+      const englishValue = getTranslationValue(translations, "eng", fields);
+      if (englishValue) return englishValue;
+
+      for (const field of fields) {
+        if (item?.[field]) return item[field];
+      }
+
+      return "";
+    }
+
+    function getTranslationValue(translations, language, fields) {
+      if (!translations || !language) return "";
+      const normalizedLanguage = normalizeLanguageCode(language);
+      const directTranslation = !Array.isArray(translations) && typeof translations === "object"
+        ? translations[language] || translations[normalizedLanguage]
+        : null;
+      const directValue = normalizeTranslationValue(directTranslation, fields);
+      if (directValue) return directValue;
+
+      const translationList = collectTranslationList(translations);
+      const languageTranslation = translationList.find((translation) => {
+        return [
+          translation?.language,
+          translation?.language_code,
+          translation?.iso_639_2,
+          translation?.iso639_2
+        ].filter(Boolean).map(normalizeLanguageCode).includes(normalizedLanguage);
+      });
+
+      return normalizeTranslationValue(languageTranslation, fields);
+    }
+
+    function collectTranslationList(translations) {
+      if (Array.isArray(translations)) return translations;
+      if (!translations || typeof translations !== "object") return [];
+      return Object.values(translations).flatMap((value) => Array.isArray(value) ? value : []);
+    }
+
+    function normalizeTranslationValue(translation, fields) {
+      if (!translation) return "";
+      if (typeof translation === "string") return translation;
+
+      for (const field of fields) {
+        if (translation[field]) return translation[field];
+      }
+
+      return "";
+    }
+
+    function normalizeLanguageCode(value) {
+      return String(value || "").toLowerCase();
     }
 
     function translateSeriesStatus(value) {
