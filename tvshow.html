@@ -176,8 +176,38 @@ let episodeRewatchCounts = new Map();
     let openSeasonKeys = new Set();
     let hasTouchedSeasonToggles = false;
 
-    function posterPlaceholder() {
-      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+    function posterPlaceholder(title = "Sans titre") {
+      const lines = splitPlaceholderTitle(title);
+      const lineHeight = 18;
+      const startY = 120 - ((lines.length - 1) * lineHeight) / 2;
+      const text = lines.map((line, index) => (
+        `<text x="80" y="${startY + index * lineHeight}" text-anchor="middle">${escapeSvgText(line)}</text>`
+      )).join("");
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240"><rect width="160" height="240" fill="#20242a"/><g fill="#f4f6fb" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">${text}</g></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
+    function splitPlaceholderTitle(value) {
+      const words = String(value || "Sans titre").trim().split(/\s+/);
+      const lines = [];
+      let line = "";
+      words.forEach((word) => {
+        const nextLine = line ? `${line} ${word}` : word;
+        if (nextLine.length <= 14) {
+          line = nextLine;
+          return;
+        }
+        if (line) lines.push(line);
+        line = word;
+      });
+      if (line) lines.push(line);
+      return (lines.length ? lines : ["Sans titre"]).slice(0, 4);
+    }
+
+    function escapeSvgText(value) {
+      return String(value).replace(/[&<>"']/g, (char) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]
+      ));
     }
 
     function getSupabaseClient() {
@@ -221,11 +251,11 @@ let episodeRewatchCounts = new Map();
       try {
         const [details, watchedResult] = await Promise.all([
           fetchTvdbEndpoint(`series/${encodeURIComponent(tvdbId)}/extended`),
-          client.from("user_episode_watches").select("episode_tvdb_id, rewatch_count").eq("user_id", user.id).in("series_tvdb_id", getPossibleTvdbIds())
+          client.from("user_episode_watches").select("episode_tvdb_id, watched_count, rewatch_count").eq("user_id", user.id).in("series_tvdb_id", getPossibleTvdbIds())
         ]);
         seriesDetails = normalizeSeries(details?.data || details);
         watchedEpisodeIds = new Set((watchedResult.data || []).map((item) => String(item.episode_tvdb_id)));
-        episodeRewatchCounts = new Map((watchedResult.data || []).map((item) => [String(item.episode_tvdb_id), Number(item.rewatch_count || 0)]));
+        episodeRewatchCounts = new Map((watchedResult.data || []).map((item) => [String(item.episode_tvdb_id), getRewatchCountFromWatchRow(item)]));
         renderSeries();
         await loadEpisodes();
       } catch (error) {
@@ -358,9 +388,9 @@ let episodeRewatchCounts = new Map();
     function renderSeries() {
       document.title = `${seriesDetails.title} — Streamory`;
       els.heading.textContent = seriesDetails.title;
-      els.poster.src = seriesDetails.imageUrl || posterPlaceholder();
+      els.poster.src = seriesDetails.imageUrl || posterPlaceholder(seriesDetails.title);
       els.poster.alt = `Affiche de ${seriesDetails.title}`;
-      els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(); }, { once: true });
+      els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(seriesDetails.title); }, { once: true });
       els.meta.textContent = [seriesDetails.year, seriesDetails.status, ...seriesDetails.genres].filter(Boolean).join(" · ");
       els.overview.textContent = seriesDetails.overview || "Aucun résumé disponible.";
       renderSeasons();
@@ -480,6 +510,12 @@ let episodeRewatchCounts = new Map();
       return Math.min(...watchCounts);
     }
 
+    function getRewatchCountFromWatchRow(item) {
+      const watchedCount = Number(item?.watched_count || 0);
+      const rewatchCount = Number(item?.rewatch_count || 0);
+      return Math.max(rewatchCount, watchedCount > 0 ? watchedCount - 1 : 0);
+    }
+
     function handleEpisodeListClick(event) {
       const row = event.target.closest(".episode-row");
       if (!row || !els.seasons.contains(row)) return;
@@ -518,6 +554,7 @@ let episodeRewatchCounts = new Map();
           episode_number: episode.number,
           episode_name: episode.title,
           watched_at: new Date().toISOString(),
+          watched_count: nextRewatchCount + 1,
           rewatch_count: nextRewatchCount,
           updated_at: new Date().toISOString()
         }, { onConflict: "user_id,series_tvdb_id,episode_tvdb_id" }));
@@ -662,6 +699,7 @@ let episodeRewatchCounts = new Map();
           episode_number: episode.number,
           episode_name: episode.title,
           watched_at: now,
+          watched_count: (shouldRewatch ? (episodeRewatchCounts.get(episode.id) || 0) + 1 : (episodeRewatchCounts.get(episode.id) || 0)) + 1,
           rewatch_count: shouldRewatch ? (episodeRewatchCounts.get(episode.id) || 0) + 1 : (episodeRewatchCounts.get(episode.id) || 0),
           updated_at: now
         }));
@@ -705,7 +743,7 @@ let episodeRewatchCounts = new Map();
       const statusEpisodes = getSeriesStatusEpisodes();
       const watchedStatusCount = statusEpisodes.filter((episode) => watchedEpisodeIds.has(episode.id)).length;
       const status = watchedStatusCount === 0 ? "watchlist" : watchedStatusCount >= statusEpisodes.length ? "watched" : "watching";
-      await client.from("user_items").upsert({
+      const { error } = await client.from("user_items").upsert({
         user_id: user.id,
         tvdb_id: getStorageTvdbId(),
         media_type: "series",
@@ -716,6 +754,7 @@ let episodeRewatchCounts = new Map();
         status,
         updated_at: new Date().toISOString()
       }, { onConflict: "user_id,tvdb_id,media_type" });
+      if (error) throw error;
     }
 
     function groupBySeason(list) {

@@ -19,30 +19,70 @@
         <button class="icon-button" type="button" aria-label="Retour au profil" onclick="window.location.href='profile.html'">←</button>
       </div>
 
-      <p class="muted" id="moviesStatus">Chargement des films…</p>
-      <div class="series-grid" id="moviesList"></div>
-    </section>
-  </main>
+	      <p class="muted" id="moviesStatus">Chargement des films…</p>
+	      <div class="series-grid" id="moviesList"></div>
+	      <div class="scroll-sentinel" id="moviesScrollSentinel" aria-hidden="true"></div>
+	    </section>
+	  </main>
 
   <script>
-    const moviesList = document.getElementById("moviesList");
-    const moviesStatus = document.getElementById("moviesStatus");
+	    const moviesList = document.getElementById("moviesList");
+	    const moviesStatus = document.getElementById("moviesStatus");
+	    const moviesScrollSentinel = document.getElementById("moviesScrollSentinel");
+	    const PAGE_SIZE = 40;
+	    let moviesClient = null;
+	    let moviesUser = null;
+	    let moviesOffset = 0;
+	    let hasMoreMovies = true;
+	    let isLoadingMovies = false;
 
-    function posterPlaceholder() {
-      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+    function posterPlaceholder(title = "Sans titre") {
+      const lines = splitPlaceholderTitle(title);
+      const lineHeight = 18;
+      const startY = 120 - ((lines.length - 1) * lineHeight) / 2;
+      const text = lines.map((line, index) => (
+        `<text x="80" y="${startY + index * lineHeight}" text-anchor="middle">${escapeSvgText(line)}</text>`
+      )).join("");
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240"><rect width="160" height="240" fill="#20242a"/><g fill="#f4f6fb" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">${text}</g></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
+    function splitPlaceholderTitle(value) {
+      const words = String(value || "Sans titre").trim().split(/\s+/);
+      const lines = [];
+      let line = "";
+      words.forEach((word) => {
+        const nextLine = line ? `${line} ${word}` : word;
+        if (nextLine.length <= 14) {
+          line = nextLine;
+          return;
+        }
+        if (line) lines.push(line);
+        line = word;
+      });
+      if (line) lines.push(line);
+      return (lines.length ? lines : ["Sans titre"]).slice(0, 4);
+    }
+
+    function escapeSvgText(value) {
+      return String(value).replace(/[&<>"']/g, (char) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]
+      ));
     }
 
     function createMovieCard(item) {
       const figure = document.createElement("figure");
       figure.className = "profile-poster-item";
 
-      const image = document.createElement("img");
-      image.src = item.image_url || posterPlaceholder();
-      image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
-      image.loading = "lazy";
-      image.addEventListener("error", () => {
-        image.src = posterPlaceholder();
-      }, { once: true });
+	      const image = document.createElement("img");
+	      image.dataset.itemId = String(item.id || "");
+	      image.src = item.image_url || posterPlaceholder(item.title);
+	      image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
+	      image.loading = "lazy";
+	      image.addEventListener("error", () => {
+	        image.src = posterPlaceholder(item.title);
+	        refreshPosterForItem(item, "movie", image);
+	      }, { once: true });
 
       const link = document.createElement("a");
       link.href = `film.html?id=${encodeURIComponent(item.tvdb_id)}`;
@@ -69,50 +109,73 @@
       return client;
     }
 
-    async function loadMovies() {
-      const client = getSupabaseClient();
+	    async function loadMovies() {
+	      moviesClient = getSupabaseClient();
 
-      if (!client) {
-        moviesStatus.textContent = "Connexion Supabase introuvable.";
-        return;
-      }
+	      if (!moviesClient) {
+	        moviesStatus.textContent = "Connexion Supabase introuvable.";
+	        return;
+	      }
 
-      const { data: authData, error: authError } = await client.auth.getUser();
-      const user = authData?.user;
+	      const { data: authData, error: authError } = await moviesClient.auth.getUser();
+	      moviesUser = authData?.user;
 
-      if (authError || !user) {
-        window.location.href = "index.html";
-        return;
-      }
+	      if (authError || !moviesUser) {
+	        window.location.href = "index.html";
+	        return;
+	      }
 
-      const { data, error } = await client
-        .from("user_items")
-        .select("*")
-        .eq("media_type", "movie")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
+	      moviesList.innerHTML = "";
+	      moviesOffset = 0;
+	      hasMoreMovies = true;
+	      observeMoviesScroll();
+	      await loadNextMoviesPage();
+	    }
 
-      if (error) {
-        moviesStatus.textContent = "Impossible de charger les films.";
-        return;
-      }
+	    function observeMoviesScroll() {
+	      if (!moviesScrollSentinel || !("IntersectionObserver" in window)) return;
+	      const observer = new IntersectionObserver((entries) => {
+	        if (entries.some((entry) => entry.isIntersecting)) loadNextMoviesPage();
+	      }, { rootMargin: "600px 0px" });
+	      observer.observe(moviesScrollSentinel);
+	    }
 
-      const movies = data || [];
-      moviesList.innerHTML = "";
+	    async function loadNextMoviesPage() {
+	      if (isLoadingMovies || !hasMoreMovies || !moviesClient || !moviesUser) return;
+	      isLoadingMovies = true;
+	      moviesStatus.textContent = moviesOffset === 0 ? "Chargement des films…" : "Chargement de la suite…";
 
-      if (!movies.length) {
-        moviesStatus.textContent = "Aucun film ajouté.";
-        return;
-      }
+	      const from = moviesOffset;
+	      const to = moviesOffset + PAGE_SIZE;
+	      const { data, error } = await moviesClient
+	        .from("user_items")
+	        .select("*")
+	        .eq("media_type", "movie")
+	        .eq("user_id", moviesUser.id)
+	        .order("updated_at", { ascending: false })
+	        .range(from, to);
 
-      moviesStatus.textContent = "";
-      movies.forEach((item) => moviesList.appendChild(createMovieCard(item)));
-      const didUpdatePosters = await backfillMissingPosters(client, movies, "movie");
-      if (didUpdatePosters) {
-        moviesList.innerHTML = "";
-        movies.forEach((item) => moviesList.appendChild(createMovieCard(item)));
-      }
-    }
+	      if (error) {
+	        moviesStatus.textContent = "Impossible de charger les films.";
+	        isLoadingMovies = false;
+	        return;
+	      }
+
+	      const movies = (data || []).slice(0, PAGE_SIZE);
+	      hasMoreMovies = (data || []).length > PAGE_SIZE;
+	      moviesOffset += movies.length;
+
+	      if (!movies.length && moviesOffset === 0) {
+	        moviesStatus.textContent = "Aucun film ajouté.";
+	        isLoadingMovies = false;
+	        return;
+	      }
+
+	      movies.forEach((item) => moviesList.appendChild(createMovieCard(item)));
+	      moviesStatus.textContent = "";
+	      await backfillMissingPosters(moviesClient, movies, "movie");
+	      isLoadingMovies = false;
+	    }
 
     async function backfillMissingPosters(client, items, mediaType) {
       const missingItems = items.filter((item) => item.id && item.tvdb_id && !item.image_url);
@@ -127,17 +190,45 @@
           item.image_url = details.image_url;
           didUpdate = true;
 
-          await client
-            .from("user_items")
-            .update({ image_url: details.image_url })
-            .eq("id", item.id);
-        } catch (_error) {
-          // Garde le placeholder si TheTVDB ne renvoie pas d'affiche.
-        }
+	          await client
+	            .from("user_items")
+	            .update({ image_url: details.image_url })
+	            .eq("id", item.id);
+	          updatePosterImage(item);
+	        } catch (_error) {
+	          // Garde le placeholder si TheTVDB ne renvoie pas d'affiche.
+	        }
       }
 
-      return didUpdate;
-    }
+	      return didUpdate;
+	    }
+
+	    async function refreshPosterForItem(item, mediaType, image) {
+	      if (!moviesClient || image.dataset.posterRetry === "1") return;
+	      image.dataset.posterRetry = "1";
+
+	      try {
+	        const details = await fetchTheTvdbDetails(moviesClient, item.tvdb_id, mediaType);
+	        if (!details.image_url || details.image_url === item.image_url) return;
+
+	        item.image_url = details.image_url;
+	        image.src = details.image_url;
+	        if (item.id) {
+	          await moviesClient
+	            .from("user_items")
+	            .update({ image_url: details.image_url })
+	            .eq("id", item.id);
+	        }
+	      } catch (_error) {
+	        // Le titre reste visible si aucune affiche récupérable.
+	      }
+	    }
+
+	    function updatePosterImage(item) {
+	      const image = [...moviesList.querySelectorAll("img[data-item-id]")]
+	        .find((candidate) => candidate.dataset.itemId === String(item.id || ""));
+	      if (image && item.image_url) image.src = item.image_url;
+	    }
 
     async function fetchTheTvdbDetails(client, tvdbId, mediaType) {
       const endpoint = mediaType === "movie"

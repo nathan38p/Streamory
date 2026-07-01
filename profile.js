@@ -36,6 +36,8 @@ const profileEls = {
 
 const PROFILE_COUNTRY_CODES = ["FR", "BE", "CH", "CA", "US", "GB", "ES", "IT", "DE", "PT"];
 const TVTIME_IMPORT_CHUNK_SIZE = 500;
+const PROFILE_RAIL_LIMIT = 20;
+const PROFILE_SERIES_ACTIVITY_LOOKBACK = 200;
 
 let profileClient = null;
 let profileSession = null;
@@ -264,28 +266,82 @@ function renderNotificationsList() {
 }
 
 async function loadProfileLibrary() {
-  const [seriesResult, moviesResult] = await Promise.all([
+  const [seriesResult, moviesResult, episodeActivityResult] = await Promise.all([
     profileClient
       .from("user_items")
       .select("id,title,tvdb_id,image_url,media_type,status,updated_at")
       .eq("media_type", "series")
       .order("updated_at", { ascending: false })
-      .limit(20),
+      .limit(PROFILE_SERIES_ACTIVITY_LOOKBACK),
     profileClient
       .from("user_items")
       .select("id,title,tvdb_id,image_url,media_type,status,updated_at")
       .eq("media_type", "movie")
       .order("updated_at", { ascending: false })
-      .limit(20)
+      .limit(PROFILE_RAIL_LIMIT),
+    profileClient
+      .from("user_episode_watches")
+      .select("series_tvdb_id,watched_at,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(PROFILE_SERIES_ACTIVITY_LOOKBACK)
   ]);
 
-  profileSeries = seriesResult.error ? [] : seriesResult.data || [];
+  const seriesItems = seriesResult.error ? [] : seriesResult.data || [];
+  const seriesActivity = episodeActivityResult.error ? new Map() : getLatestSeriesActivityMap(episodeActivityResult.data || []);
+  const missingSeriesIds = getMissingActivitySeriesIds(seriesItems, seriesActivity);
+
+  if (missingSeriesIds.length) {
+    const { data: activityItems } = await profileClient
+      .from("user_items")
+      .select("id,title,tvdb_id,image_url,media_type,status,updated_at")
+      .eq("media_type", "series")
+      .in("tvdb_id", missingSeriesIds);
+    seriesItems.push(...(activityItems || []));
+  }
+
+  profileSeries = sortByLatestProfileActivity(seriesItems, seriesActivity).slice(0, PROFILE_RAIL_LIMIT);
   profileMovies = moviesResult.error ? [] : moviesResult.data || [];
 
   await markTvtimeImportDoneIfExistingData();
   updateTvtimeImportVisibility();
   await backfillMissingProfilePosters();
   renderProfileRails();
+}
+
+function getLatestSeriesActivityMap(rows) {
+  const activity = new Map();
+
+  rows.forEach((row) => {
+    const key = normalizeTvdbId(row.series_tvdb_id);
+    if (!key) return;
+
+    const timestamp = Math.max(getTimeValue(row.updated_at), getTimeValue(row.watched_at));
+    if (!timestamp || timestamp <= (activity.get(key) || 0)) return;
+    activity.set(key, timestamp);
+  });
+
+  return activity;
+}
+
+function getMissingActivitySeriesIds(seriesItems, seriesActivity) {
+  const knownIds = new Set(seriesItems.map((item) => normalizeTvdbId(item.tvdb_id)).filter(Boolean));
+  return [...seriesActivity.keys()].filter((tvdbId) => !knownIds.has(tvdbId));
+}
+
+function sortByLatestProfileActivity(items, seriesActivity) {
+  return uniqueBy(items, (item) => normalizeTvdbId(item.tvdb_id) || item.id)
+    .sort((a, b) => getProfileActivityTime(b, seriesActivity) - getProfileActivityTime(a, seriesActivity));
+}
+
+function getProfileActivityTime(item, seriesActivity) {
+  const itemTime = getTimeValue(item.updated_at);
+  const seriesTime = seriesActivity.get(normalizeTvdbId(item.tvdb_id)) || 0;
+  return Math.max(itemTime, seriesTime);
+}
+
+function getTimeValue(value) {
+  const time = new Date(value || 0).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 
 async function backfillMissingProfilePosters() {
@@ -348,11 +404,11 @@ function createProfilePoster(item) {
   link.setAttribute("aria-label", `Voir ${item.title || "ce titre"}`);
 
   const image = document.createElement("img");
-  image.src = item.image_url || posterPlaceholder();
+  image.src = item.image_url || posterPlaceholder(item.title);
   image.alt = item.title ? `Affiche de ${item.title}` : "Affiche";
   image.loading = "lazy";
   image.addEventListener("error", () => {
-    image.src = posterPlaceholder();
+    image.src = posterPlaceholder(item.title);
   }, { once: true });
 
   const caption = document.createElement("figcaption");
@@ -1042,8 +1098,40 @@ function emptySocialMessage(message) {
   return empty;
 }
 
-function posterPlaceholder() {
-  return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+function posterPlaceholder(title = "Sans titre") {
+  const lines = splitPlaceholderTitle(title);
+  const lineHeight = 18;
+  const startY = 120 - ((lines.length - 1) * lineHeight) / 2;
+  const text = lines.map((line, index) => (
+    `<text x="80" y="${startY + index * lineHeight}" text-anchor="middle">${escapeSvgText(line)}</text>`
+  )).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240"><rect width="160" height="240" fill="#20242a"/><g fill="#f4f6fb" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">${text}</g></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function splitPlaceholderTitle(value) {
+  const words = String(value || "Sans titre").trim().split(/\s+/);
+  const lines = [];
+  let line = "";
+
+  words.forEach((word) => {
+    const nextLine = line ? `${line} ${word}` : word;
+    if (nextLine.length <= 14) {
+      line = nextLine;
+      return;
+    }
+    if (line) lines.push(line);
+    line = word;
+  });
+
+  if (line) lines.push(line);
+  return (lines.length ? lines : ["Sans titre"]).slice(0, 4);
+}
+
+function escapeSvgText(value) {
+  return String(value).replace(/[&<>"']/g, (char) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]
+  ));
 }
 
 function formatProfileError(error) {

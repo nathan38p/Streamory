@@ -106,8 +106,38 @@
     let movieWatchCount = 0;
     let notifications = [];
 
-    function posterPlaceholder() {
-      return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='240' viewBox='0 0 160 240'%3E%3Crect width='160' height='240' fill='%2320242a'/%3E%3Cpath d='M42 72h76v96H42z' fill='none' stroke='%236f7782' stroke-width='6'/%3E%3Cpath d='M55 92h50M55 112h50M55 132h32' stroke='%23a7adb6' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
+    function posterPlaceholder(title = "Sans titre") {
+      const lines = splitPlaceholderTitle(title);
+      const lineHeight = 18;
+      const startY = 120 - ((lines.length - 1) * lineHeight) / 2;
+      const text = lines.map((line, index) => (
+        `<text x="80" y="${startY + index * lineHeight}" text-anchor="middle">${escapeSvgText(line)}</text>`
+      )).join("");
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="240" viewBox="0 0 160 240"><rect width="160" height="240" fill="#20242a"/><g fill="#f4f6fb" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">${text}</g></svg>`;
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+
+    function splitPlaceholderTitle(value) {
+      const words = String(value || "Sans titre").trim().split(/\s+/);
+      const lines = [];
+      let line = "";
+      words.forEach((word) => {
+        const nextLine = line ? `${line} ${word}` : word;
+        if (nextLine.length <= 14) {
+          line = nextLine;
+          return;
+        }
+        if (line) lines.push(line);
+        line = word;
+      });
+      if (line) lines.push(line);
+      return (lines.length ? lines : ["Sans titre"]).slice(0, 4);
+    }
+
+    function escapeSvgText(value) {
+      return String(value).replace(/[&<>"']/g, (char) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]
+      ));
     }
 
     function getSupabaseClient() {
@@ -228,9 +258,9 @@
     function renderMovie(savedItem) {
       document.title = `${movieDetails.title} — Streamory`;
       els.heading.textContent = movieDetails.title;
-      els.poster.src = movieDetails.imageUrl || posterPlaceholder();
+      els.poster.src = movieDetails.imageUrl || posterPlaceholder(movieDetails.title);
       els.poster.alt = `Affiche de ${movieDetails.title}`;
-      els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(); }, { once: true });
+      els.poster.addEventListener("error", () => { els.poster.src = posterPlaceholder(movieDetails.title); }, { once: true });
       els.meta.textContent = [movieDetails.year, movieDetails.runtime ? `${movieDetails.runtime} min` : "", ...movieDetails.genres].filter(Boolean).join(" · ");
       els.overview.textContent = movieDetails.overview || "Aucun résumé disponible.";
       movieWatchCount = getInitialMovieWatchCount(savedItem);
