@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 110;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -29,11 +29,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		02C22AFF2FF70A250094F438 /* GDPR exemple */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "GDPR exemple";
-			sourceTree = "<group>";
-		};
 		02DE54502FF68EB200081135 /* Streamory */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -61,7 +56,6 @@
 				02DE544F2FF68EB200081135 /* Products */,
 				02DE54A92FF691F900081135 /* StreamoryModels.swift */,
 				02DE54AB2FF6922900081135 /* StreamoryService.swift */,
-				02C22AFF2FF70A250094F438 /* GDPR exemple */,
 			);
 			sourceTree = "<group>";
 		};
@@ -87,7 +81,6 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				02C22AFF2FF70A250094F438 /* GDPR exemple */,
 				02DE54502FF68EB200081135 /* Streamory */,
 			);
 			name = Streamory;
@@ -283,7 +276,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Streamory/Streamory.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = SLHK6U4Z84;
 				ENABLE_APP_SANDBOX = YES;
@@ -345,7 +338,7 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Streamory/Streamory.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = SLHK6U4Z84;
 				ENABLE_APP_SANDBOX = YES;
