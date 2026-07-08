@@ -1,0 +1,2 @@
+user_id,original_transaction_id,product_id,original_purchase_date,purchase_date,expires_date,id,created_at,updated_at,quantity
+5449324,500000324832430,com.tvshowtime.plan.very_important_fan,2018-04-17 23:24:31 +0000 UTC,2018-04-17 23:24:30 +0000 UTC,2018-05-17 23:24:30 +0000 UTC,500000324832430,2018-04-17 23:24:34,2018-04-17 23:24:34,1
