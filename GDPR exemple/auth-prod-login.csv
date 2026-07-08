@@ -1,7 +1,0 @@
-reset_token,range_key,valid_until,hash_key,email,user_id,external_id,encrypted_secret,username,password_hash,provider,encrypted_token
-6d38425652776d314f6a694944563230685a32696e496d5063705a7657665878d41d8cd98f00b204e9800998ecf8427e,6d38425652776d314f6a694944563230685a32696e496d5063705a7657665878d41d8cd98f00b204e9800998ecf8427e,2022-07-16T10:54:39.880634301Z,password_reset_token,issartel.nathan@icloud.com,5449324,,,,,,
-,apple:001460.049f4a39101b45a782e4e043b50d1d54.0052,,issartel.nathan@icloud.com,issartel.nathan@icloud.com,5449324,001460.049f4a39101b45a782e4e043b50d1d54.0052,,,,apple,
-,tvtime:nathanissartel,,issartel.nathan@icloud.com,issartel.nathan@icloud.com,5449324,,,nathanissartel,$2y$11$I5Ys6vYurwpQpZ0QU7DaEOqfHV7.UP.wl/8O76wtFO6xgrDwbPdfa,tvtime,
-,tvtime:nathanissartel,,piaget.nathan@icloud.com,piaget.nathan@icloud.com,5449324,,,nathanissartel,$2y$11$I5Ys6vYurwpQpZ0QU7DaEOqfHV7.UP.wl/8O76wtFO6xgrDwbPdfa,tvtime,
-,tvtime:nathanissartel,,ethos.florissant_0u@icloud.com,ethos.florissant_0u@icloud.com,5449324,,,nathanissartel,$2y$11$I5Ys6vYurwpQpZ0QU7DaEOqfHV7.UP.wl/8O76wtFO6xgrDwbPdfa,tvtime,
-,tvtime:nathanpiaget,,piaget.nathan@icloud.com,piaget.nathan@icloud.com,5449324,,,nathanpiaget,$2y$11$I5Ys6vYurwpQpZ0QU7DaEOqfHV7.UP.wl/8O76wtFO6xgrDwbPdfa,tvtime,

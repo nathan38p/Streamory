@@ -1,1 +1,12 @@
 .DS_Store
+.vscode/
+*.xcuserstate
+*.xcbkptlist
+*.xcuserdatad/
+**/supabase/.temp/
+GDPR exemple/
+gdpr-data.zip
+.env
+*.p8
+*.p12
+*.mobileprovision
